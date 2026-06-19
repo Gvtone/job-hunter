@@ -1,0 +1,1016 @@
+{
+  "name": "Job Hunter",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        224
+      ],
+      "id": "459f401f-f617-4706-bf24-33da0e4d9e37",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "http://flask:5000/scrape",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sites",
+              "value": "indeed,google,linkedin"
+            },
+            {
+              "name": "term",
+              "value": "={{ $json.term }}"
+            },
+            {
+              "name": "results",
+              "value": "10"
+            },
+            {
+              "name": "offset",
+              "value": "={{ $json.current_offset }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        688,
+        512
+      ],
+      "id": "f8d9ec80-a1f8-4f6c-9f70-612199371e8b",
+      "name": "Send Request to the Flask Server",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const seen = new Set();\nconst unique = [];\n\nfor (const item of $input.all()) {\n  if (!seen.has(item.json.job_id)) {\n    seen.add(item.json.job_id);\n    unique.push(item);\n  }\n}\n\nreturn unique;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        320
+      ],
+      "id": "93503899-2e2e-4eb8-b35d-42ed7cd88635",
+      "name": "Filter Duplicate Jobs"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "app",
+          "mode": "list",
+          "cachedResultName": "app"
+        },
+        "table": {
+          "__rl": true,
+          "value": "jobs",
+          "mode": "list",
+          "cachedResultName": "jobs"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "job_id",
+              "value": "={{ $json.job_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        912,
+        320
+      ],
+      "id": "5ef19e6e-d95f-41aa-8d0e-f5f5ba5e95ef",
+      "name": "Select Job From Table",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "AuPWDsxSn4LeHgBi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job-fit evaluator for Gerald, a backend developer with ~2 years of professional web development experience based in Santa Cruz, Laguna Philippines.\n\n## Gerald's Background\n- Main stack: NestJS, Node.js, TypeScript, REST APIs, PostgreSQL, Prisma, React, AWS (S3/CloudFront/IAM), Redis/BullMQ, Docker\n- Experience: ~2 years backend (JWT auth for 55k+ users, LiveKit video, AWS S3 49GB, led small teams)\n- Strongest differentiator: NestJS\n- Currently learning: React (frontend), Next.js\n- Adjacent but weak: PHP, Python (scripting/research), GraphQL (familiar)\n- Avoid: Java enterprise, .NET primary, SAP, Power Platform, mobile-only\n\n## ROS Compliance (Evaluate FIRST — hard gate)\nGerald has a Return of Service obligation to DOST-SEI. His employer MUST be legally registered and operating in the Philippines.\n\nPASS:\n- Philippine-registered companies (government or private)\n- Foreign-owned companies with a Philippine office that issues a PH Certificate of Employment\n- EOR structures where Gerald is employed by a PH-registered entity (Emapta, Boomering, RecruitGo, Stratpoint, Exist Global, Pointwest)\n- Remote/WFH is fine as long as the company itself is PH-based\n\nFAIL:\n- Foreign company with no Philippine presence hiring Filipinos remotely (WFH for overseas employer)\n- VA or contractor arrangements serving a non-PH company\n- \"Direct contractor\", \"freelance\", \"no benefits\" explicitly stated\n- Any setup where CoE would come from a foreign entity\n- Anonymous company with no verifiable PH presence\n\nIf ROS fails: set ros_pass=false, ros_reason explaining why, llm_score=0, llm_apply=false, llm_flags=[\"ROS FAIL\"], and stop scoring.\n\nIf ROS passes: immediately check when the job was posted. If the job was posted more than a month before {{ $now }}, set llm_score=0, llm_apply=false, llm_flags=[\"OLD JOB POST\"], and stop scoring.\n\n## Onsite/Hybrid Location Check (evaluate after ROS and OLD JOB POST pass)\n\nIf job is ONSITE: check if the job location is within 100km of Santa Cruz, Laguna (this includes Calamba, Los Baños, Cabuyao, Biñan, San Pablo, and the wider Metro Manila area — Manila, Quezon City, Makati, Pasig, Taguig). If the location is clearly outside this range (e.g., Cebu, Davao, Baguio, Lucena, or any other region/island), set llm_score=0, llm_apply=false, llm_flags=[\"LOCATION FAR\"], and stop scoring.\n\nIf job is HYBRID: first check the required office frequency.\n- If hybrid is once a week or less (including \"once or twice a month,\" \"quarterly,\" or unspecified-but-implied-low-frequency), apply the same 100km distance check as ONSITE above. If within range, continue scoring normally (do not penalize for being hybrid). If outside range, set llm_score=0, llm_apply=false, llm_flags=[\"LOCATION FAR\"], and stop scoring.\n- If hybrid is 2+ times a week, treat it like ONSITE regardless of distance — apply the same in-range/out-of-range logic, but flag \"HYBRID\" in addition to any other flags since frequent in-person presence is a real constraint even when nearby.\n\nIf the job location is ambiguous or does not specify a city/region (e.g., just \"Philippines\" or \"PH\" with no further detail), do NOT apply LOCATION FAR. Instead, add \"INVESTIGATION NEEDED\" to llm_flags and continue scoring normally — don't penalize or zero out a job over missing location detail alone.\n\nRemote jobs are exempt from this entire check, regardless of where the company itself is based.\n\n## Scoring (only if ROS passes) — Total: 0-10\n\n### Stack Fit (0-3)\n3 — NestJS explicitly mentioned OR 3+ core skills match (Node.js, TypeScript, PostgreSQL, REST APIs, React, AWS, Redis, Docker)\n2 — 2 core skills match, or Node.js/TypeScript without NestJS\n1 — Adjacent stack (PHP/Laravel, Python backend, GraphQL) — learnable gap\n0 — Entirely outside ecosystem (Java enterprise, .NET primary, SAP, mobile-only)\n\n### Experience Requirement (0-2)\n2 — 1-2 years required, clearly fits Gerald\n1 — 2-3 years, borderline fit\n0 — 3+ years required, significant reach\n\n### Green/Red Flags (0-3)\n3 — Multiple green flags, no red flags\n2 — Mostly positive, minor concerns\n1 — Mixed signals or one significant red flag\n0 — Multiple red flags\n\nGreen flags: EOR company name visible, PH office address listed, junior-friendly language, salary posted above floor, NestJS mentioned, day/mid shift stated\nRed flags: Foreign company signals with no PH entity, contractor/freelance language, time tracking required, anonymous company, salary well below floor, stack entirely outside ecosystem, posting older than 6 months, hybrid requiring 2+ days/week in office\n\n### Salary (0-2)\n2 — ₱45,000+/month (PH roles) or $15+/hour (global remote ROS-compliant)\n1 — ₱38,000-44,999/month or slightly below global floor\n0 — Below ₱38,000, explicitly below floor, or salary unknown (read description carefully)\n\nNote: If salary is not explicitly stated but description mentions compensation details, use those. If truly unknown, score 0 but do not penalize in llm_reason — note it as unknown.\n\n## llm_apply threshold\n- true if ros_pass=true AND llm_score >= 5\n- false if ros_pass=false OR llm_score < 5\n\n## llm_flags\nUse this array to flag important signals that affect the decision:\n- \"ROS FAIL\" — failed ROS gate\n- \"OLD JOB POST\" — job post is more than a month old\n- \"LOCATION FAR\" - job is outside the 100 km radius from Santa Cruz, Laguna\n- \"NIGHT SHIFT\" — shift starts 10PM or later PH time\n- \"HYBRID\" — requires regular office presence\n- \"ONSITE\" — fully onsite\n- \"SALARY UNKNOWN\" — no salary info found\n- \"SALARY BELOW FLOOR\" — salary posted but below ₱38,000\n- \"REACH ROLE\" — experience requirement is 3+ years\n- \"CONTRACT ROLE\" — fixed-term or contract, not permanent employment\n- \"INVESTIGATION NEEDED\" — company PH status unclear, needs manual verification\n- \"NESTJS MATCH\" — NestJS explicitly mentioned (positive flag)\n\n## Job Data\nTitle: $json.title\nCompany: $json.company\nLocation: $json.location\nIs Remote: $json.is_remote\nSalary: $json.salary\nDescription: $json.description\nPosted At: $json.posted_at\n\n## Output Format\nReturn ONLY valid JSON with no markdown, no backticks, no explanation. Just the raw JSON object:\n{\n  \"ros_pass\": true/false,\n  \"ros_reason\": \"one sentence explaining ROS decision\",\n  \"llm_score\": 0-10,\n  \"llm_apply\": true/false,\n  \"llm_reason\": \"2-3 sentences summarizing fit, key strengths, and concerns\",\n  \"llm_flags\": [\"FLAG1\", \"FLAG2\"]\n}",
+              "role": "model"
+            },
+            {
+              "content": "=Please evaluate this job:\n\nTitle: {{ $json.title }}\nCompany: {{ $json.company }}\nLocation: {{ $json.location }}\nIs Remote: {{ $json.is_remote }}\nSalary: {{ $json.salary }}\nDescription: {{ $json.description }}\nPosted At: {{ $json.posted_at }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1584,
+        320
+      ],
+      "id": "e230711e-af20-4a02-8718-dd0daca3532f",
+      "name": "Message a model",
+      "executeOnce": false,
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GRbgKGRCOAzCSZei",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => ({\n  json: JSON.parse(item.json.content.parts[0].text)\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        128
+      ],
+      "id": "f4255516-b421-4a50-bc4e-00a132ca3804",
+      "name": "Parse Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $('Filter Already Existing in Database').all();\n\nreturn $input.all().map((item, index) => {\n  const job = jobs[index].json;\n  const verdict = item.json;\n  return {\n    json: {\n      ...job,\n      ...verdict\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        128
+      ],
+      "id": "5c153e8a-684a-4160-bb88-2ba371ee096e",
+      "name": "Combine Job and LLM Data"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "app",
+          "mode": "list",
+          "cachedResultName": "app"
+        },
+        "table": {
+          "__rl": true,
+          "value": "jobs",
+          "mode": "list",
+          "cachedResultName": "jobs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_remote": "={{ $json.is_remote }}",
+            "ros_pass": "={{ $json.ros_pass }}",
+            "llm_apply": "={{ $json.llm_apply }}",
+            "llm_score": "={{ $json.llm_score }}",
+            "job_id": "={{ $json.job_id }}",
+            "source": "={{ $json.source }}",
+            "title": "={{ $json.title }}",
+            "company": "={{ $json.company }}",
+            "location": "={{ $json.location }}",
+            "url": "={{ $json.url }}",
+            "description": "={{ $json.description }}",
+            "salary": "={{ $json.salary }}",
+            "posted_at": "={{ $json.posted_at }}",
+            "ros_reason": "={{ $json.ros_reason }}",
+            "llm_reason": "={{ $json.llm_reason }}",
+            "llm_flags": "={{ $json.llm_flags }}",
+            "verdict_at": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_remote",
+              "displayName": "is_remote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary",
+              "displayName": "salary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scraped_at",
+              "displayName": "scraped_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ros_pass",
+              "displayName": "ros_pass",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ros_reason",
+              "displayName": "ros_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary_pass",
+              "displayName": "salary_pass",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "llm_score",
+              "displayName": "llm_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "llm_apply",
+              "displayName": "llm_apply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "llm_reason",
+              "displayName": "llm_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "llm_flags",
+              "displayName": "llm_flags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "array",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "verdict_at",
+              "displayName": "verdict_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2160,
+        128
+      ],
+      "id": "0cfe1818-c39f-4222-a95a-45d8a2372630",
+      "name": "Insert Job and Verdict Data",
+      "credentials": {
+        "postgres": {
+          "id": "AuPWDsxSn4LeHgBi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0aa79884-5c84-4054-96d2-b555cd57f5cb",
+              "leftValue": "={{ $json.llm_apply }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2384,
+        128
+      ],
+      "id": "dadaa456-ee50-48d8-be36-66f8653f55f0",
+      "name": "If Should Apply"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -432,
+        416
+      ],
+      "id": "ee0735f3-451f-4ddf-8962-1dd2af2bcec9",
+      "name": "Schedule Trigger",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1936,
+        400
+      ],
+      "id": "f07900c4-7427-4131-9672-24859d08d35b",
+      "name": "Wait",
+      "webhookId": "8365641d-03b3-48f5-8f3e-7e208799f961"
+    },
+    {
+      "parameters": {
+        "jsCode": "const totalJobs = $(\"Filter Duplicate Jobs\").all();\n\nconst existingJobs = $(\"Select Job From Table\").all();\n\nconst existingIdsSet = new Set(existingJobs.map(item => item.json.job_id));\n\nconst newJobsOnly = totalJobs.filter(item => !existingIdsSet.has(item.json.job_id));\n\nreturn newJobsOnly;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        320
+      ],
+      "id": "0dc069a4-afdd-464e-a7ab-49a4507ad75f",
+      "name": "Filter Already Existing in Database"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        464,
+        512
+      ],
+      "id": "8cc70f1e-fb66-40c1-bd0b-e643da74d112",
+      "name": "Loop Over Terms"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        320
+      ],
+      "id": "622a97aa-7c4b-477c-b37e-201af27e4657",
+      "name": "Loop Over Jobs"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "app",
+          "mode": "list",
+          "cachedResultName": "app"
+        },
+        "table": {
+          "__rl": true,
+          "value": "search_offsets",
+          "mode": "list",
+          "cachedResultName": "search_offsets"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "current_offset": 0,
+            "term": "={{ $json.term }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "term",
+              "displayName": "term",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_offset",
+              "displayName": "current_offset",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "skipOnConflict": true
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        16,
+        224
+      ],
+      "id": "84a38ce8-0f36-4c96-9be9-f83f2d93fbce",
+      "name": "Insert New Terms",
+      "credentials": {
+        "postgres": {
+          "id": "AuPWDsxSn4LeHgBi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "app",
+          "mode": "list",
+          "cachedResultName": "app"
+        },
+        "table": {
+          "__rl": true,
+          "value": "search_offsets",
+          "mode": "list",
+          "cachedResultName": "search_offsets"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "term",
+              "value": "={{ $json.term }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        16,
+        512
+      ],
+      "id": "21eb083f-0f9c-4d2a-94c0-d15655375bb3",
+      "name": "Select Current Term Offset",
+      "credentials": {
+        "postgres": {
+          "id": "AuPWDsxSn4LeHgBi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        592
+      ],
+      "id": "a7d8b83d-e103-4d1b-973f-2f6094010014",
+      "name": "Wait1",
+      "webhookId": "12b5070e-f06a-4c7a-91f4-6fa359a165a2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "app",
+          "mode": "list",
+          "cachedResultName": "app"
+        },
+        "table": {
+          "__rl": true,
+          "value": "search_offsets",
+          "mode": "list",
+          "cachedResultName": "search_offsets"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "current_offset": "={{ $json.current_offset + 10 % 30 }}",
+            "term": "={{ $json.term }}"
+          },
+          "matchingColumns": [
+            "term"
+          ],
+          "schema": [
+            {
+              "id": "term",
+              "displayName": "term",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "current_offset",
+              "displayName": "current_offset",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        512
+      ],
+      "id": "15d5c575-583e-4731-84fb-6b44027cbe78",
+      "name": "Update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "AuPWDsxSn4LeHgBi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        816
+      ],
+      "id": "a774c4db-495d-41dd-9a55-67fe045e9557",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "chatId": "8039219989",
+        "text": "=🟢 New job match!\n\n*{{ $json.title }}* at {{ $json.company }}\n\n- Score: {{ $json.llm_score }}/10\n- Location: {{ $json.location }}\n- Flags: {{ $json.llm_flags }}\n\n{{ $json.llm_reason }} \n\nApply: {{ $json.url }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2608,
+        128
+      ],
+      "id": "2fa51535-af20-426b-8077-f28e947a25b9",
+      "name": "Send New Job Match",
+      "webhookId": "a072530f-cc4b-4a13-8d8f-a67304f1a823",
+      "credentials": {
+        "telegramApi": {
+          "id": "JEoBIDHKfNL02Xqr",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8039219989",
+        "text": "=🔴 Error executing workflow\n\n- Error: {{ $json.execution.error.message }}\n- Last Node Executed: {{ $json.execution.lastNodeExecuted }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        816
+      ],
+      "id": "bdc246bb-fd6d-4a58-8a27-1a0e4132b8ac",
+      "name": "Send a text message",
+      "webhookId": "cd0f6573-d490-43e3-adc9-d05522aa9ab6",
+      "credentials": {
+        "telegramApi": {
+          "id": "JEoBIDHKfNL02Xqr",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { term: \"nodejs developer\" } },\n  { json: { term: \"backend developer\" } },\n  { json: { term: \"fullstack developer\" } },\n  { json: { term: \"software engineer\" } },\n  { json: { term: \"typescript developer\" } },\n  { json: { term: \"backend engineer nestjs\" } }\n]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        320
+      ],
+      "id": "8d896e93-d663-486e-bdb2-c5e39ab8980d",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Request to the Flask Server": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Duplicate Jobs": {
+      "main": [
+        [
+          {
+            "node": "Select Job From Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Job From Table": {
+      "main": [
+        [
+          {
+            "node": "Filter Already Existing in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Data": {
+      "main": [
+        [
+          {
+            "node": "Combine Job and LLM Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Job and LLM Data": {
+      "main": [
+        [
+          {
+            "node": "Insert Job and Verdict Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Job and Verdict Data": {
+      "main": [
+        [
+          {
+            "node": "If Should Apply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Should Apply": {
+      "main": [
+        [
+          {
+            "node": "Send New Job Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Already Existing in Database": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Terms": {
+      "main": [
+        [
+          {
+            "node": "Filter Duplicate Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Request to the Flask Server",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Jobs": {
+      "main": [
+        [
+          {
+            "node": "Parse Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Current Term Offset": {
+      "main": [
+        [
+          {
+            "node": "Update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Terms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Terms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Select Current Term Offset",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert New Terms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bb4f832b-264e-41ca-b299-db6cbcde9f6c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9621b2c2fefd2a4a2e420a9b96807884429f70ae5110bf15022be37ff66657e1"
+  },
+  "nodeGroups": [],
+  "id": "DIUsm6M1sXhqKTi9",
+  "tags": []
+}
