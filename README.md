@@ -15,7 +15,7 @@ Every run, the pipeline:
 5. Stores every evaluated job — pass or fail — in Postgres with the full verdict, score, and reasoning
 6. Sends a Telegram notification only for jobs that pass ROS compliance and score 5+ out of 10
 
-Runs four times in a row, an hour apart, while my PC is on. No application automation — this surfaces candidates for me to review and apply to myself.
+Runs four times a day — 8 AM, 12 PM, 4 PM, and 8 PM (Asia/Manila) — on an always-on homelab server (a Lenovo M700q), so it no longer depends on my laptop being awake. No application automation — this surfaces candidates for me to review and apply to myself.
 
 ## Why this exists
 
@@ -28,7 +28,7 @@ ROS compliance is a hard, non-negotiable filter that's basically invisible to st
 **Flow summary:**
 
 1. **Schedule Trigger** (or manual trigger for testing) → **Code in JavaScript** generates the current set of search terms as items
-2. Those terms flow two ways in parallel: into **Insert New Terms** (seeds `app.search_offsets` for any term not yet tracked) and into **Select Current Term Offset** → **Update rows in a table** (reads and increments the offset for each term)
+2. Those terms flow two ways in parallel: into **Insert New Terms** (seeds `job_hunter.search_offsets` for any term not yet tracked) and into **Select Current Term Offset** → **Update rows in a table** (reads and increments the offset for each term)
 3. **Loop Over Terms** → for each term, calls the Flask scraper with that term's current offset
 4. **Filter Duplicate Jobs** (Code node, `Set`-based) → removes duplicates within the same batch
 5. **Select Job From Table** + **Filter Already Existing in Database** → removes jobs already evaluated in a previous run
@@ -37,7 +37,7 @@ ROS compliance is a hard, non-negotiable filter that's basically invisible to st
    - **Wait** → rate-limit buffer before the next job
 7. **Parse Data** → parses the LLM's JSON string response
 8. **Combine Job and LLM Data** → merges the original job fields with the verdict
-9. **Insert Job and Verdict Data** → writes the full record (job + verdict) to `app.jobs`
+9. **Insert Job and Verdict Data** → writes the full record (job + verdict) to `job_hunter.jobs`
 10. **If Should Apply** (`llm_apply == true`) → **Send New Job Match** (Telegram)
 11. **Error Trigger** → if the workflow itself fails, **Send a text message** (Telegram) fires as a separate failure alert, independent of the main success path
 
@@ -68,29 +68,45 @@ See [`n8n/job-hunter-workflow.json`](./n8n/job-hunter-workflow.json) for the ful
 
 ## Tech stack
 
-- **Orchestration:** [n8n](https://n8n.io/), self-hosted via Docker Compose
+- **Orchestration:** [n8n](https://n8n.io/), self-hosted
 - **Scraping:** Python, [JobSpy](https://github.com/speedyapply/JobSpy), Flask
-- **Database:** PostgreSQL (separate `app` schema, isolated from n8n's internal tables)
+- **Database:** PostgreSQL (separate `job_hunter` schema, isolated from n8n's internal tables)
 - **LLM:** Google Gemini 3.1 Flash Lite (free tier)
 - **Notifications:** Telegram Bot API
-- **Infra:** Docker Compose, running locally on Windows
+- **Infra:** Docker Compose on a Lenovo M700q homelab server; the scraper container joins the existing n8n stack's Docker network
 
 ## Database schema
 
-Two tables in a separate `app` schema, kept isolated from n8n's own internal tables:
+Two tables in a separate `job_hunter` schema, kept isolated from n8n's own internal tables:
 
-- **`app.jobs`** — every scraped and evaluated job, including the full LLM verdict (`ros_pass`, `llm_score`, `llm_apply`, `llm_reason`, `llm_flags`), regardless of whether it passed
-- **`app.search_offsets`** — tracks the current scrape offset per search term, so repeated runs rotate through different result pages instead of re-scraping the same top listings
+- **`job_hunter.jobs`** — every scraped and evaluated job, including the full LLM verdict (`ros_pass`, `llm_score`, `llm_apply`, `llm_reason`, `llm_flags`), regardless of whether it passed
+- **`job_hunter.search_offsets`** — tracks the current scrape offset per search term, so repeated runs rotate through different result pages instead of re-scraping the same top listings
 
 Full definitions in [`db/schema.sql`](./db/schema.sql) — run it directly against a fresh Postgres database to set everything up.
 
 ## Setup
 
-1. Clone the repo and copy `.env.example` to `.env`, filling in your own Postgres credentials, Gemini API key, and Telegram bot token/chat ID
+There are two ways to run it, depending on whether you already have n8n running.
+
+### Homelab (existing n8n instance) — how I run it
+
+The pipeline runs on my M700q homelab, which already hosts n8n and Postgres. Only the scraper needs to be deployed alongside it:
+
+1. Clone the repo on the server and copy `.env.example` to `.env`. Set `N8N_NETWORK` to the name of the Docker network your n8n container is on (`docker network ls` to find it)
+2. `docker compose -f docker-compose.homelab.yaml up -d --build` — builds the Flask scraper and attaches it to the n8n network so n8n can reach it by service name
+3. Run [`db/schema.sql`](./db/schema.sql) against the Postgres instance n8n will write to, to create the `job_hunter` schema
+4. In n8n, import [`n8n/job-hunter-workflow.json`](./n8n/job-hunter-workflow.json) and set up the Postgres and Gemini/Telegram credentials (these aren't stored in the exported JSON)
+5. Run once manually to seed `job_hunter.search_offsets`, then activate the workflow
+
+### Standalone (everything in one stack)
+
+For running locally or on a machine without n8n:
+
+1. Clone the repo and copy `.env.example` to `.env`, filling in your own Postgres credentials and n8n login/encryption key
 2. `docker compose up -d` — starts Postgres, the Flask scraper, and n8n
 3. Open n8n at `http://localhost:5678` and import [`n8n/job-hunter-workflow.json`](./n8n/job-hunter-workflow.json)
-4. Set up the Postgres and Gemini/Telegram credentials inside n8n (these aren't stored in the exported JSON)
-5. Run once manually to seed `app.search_offsets`, then activate the Schedule Trigger
+4. Set up the Postgres and Gemini/Telegram credentials inside n8n
+5. Run once manually to seed `job_hunter.search_offsets`, then activate the workflow
 
 ## Results so far
 

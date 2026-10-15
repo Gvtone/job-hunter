@@ -1,10 +1,10 @@
 -- Job Hunter database schema
 -- Run with: psql -U <user> -d <database> -f schema.sql
--- Assumes the `app` schema is isolated from n8n's own internal tables (which live in `public`).
+-- Assumes the `job_hunter` schema is isolated from n8n's own internal tables (which live in `public`).
 
-CREATE SCHEMA IF NOT EXISTS app;
+CREATE SCHEMA IF NOT EXISTS job_hunter;
 
-CREATE TABLE app.jobs (
+CREATE TABLE job_hunter.jobs (
   id           SERIAL PRIMARY KEY,
   job_id       TEXT UNIQUE NOT NULL,
   source       TEXT NOT NULL,
@@ -26,11 +26,11 @@ CREATE TABLE app.jobs (
   verdict_at   TIMESTAMPTZ
 );
 
-CREATE INDEX idx_jobs_source ON app.jobs(source);
-CREATE INDEX idx_jobs_llm_score ON app.jobs(llm_score);
-CREATE INDEX idx_jobs_scraped_at ON app.jobs(scraped_at);
+CREATE INDEX idx_jobs_source ON job_hunter.jobs(source);
+CREATE INDEX idx_jobs_llm_score ON job_hunter.jobs(llm_score);
+CREATE INDEX idx_jobs_scraped_at ON job_hunter.jobs(scraped_at);
 
-CREATE TABLE app.search_offsets (
+CREATE TABLE job_hunter.search_offsets (
   term            TEXT PRIMARY KEY,
   current_offset  INTEGER DEFAULT 0
 );

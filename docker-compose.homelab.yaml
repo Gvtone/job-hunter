@@ -1,0 +1,11 @@
+services:
+  jobspy:
+    build:
+      context: ./scraper
+    restart: unless-stopped
+    networks: [n8n_net]
+
+networks:
+  n8n_net:
+    external: true
+    name: ${N8N_NETWORK}

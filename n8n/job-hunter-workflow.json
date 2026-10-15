@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "url": "http://flask:5000/scrape",
+        "url": "http://jobspy:5000/scrape",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -59,9 +59,9 @@
         "operation": "select",
         "schema": {
           "__rl": true,
-          "value": "app",
+          "value": "job_hunter",
           "mode": "list",
-          "cachedResultName": "app"
+          "cachedResultName": "job_hunter"
         },
         "table": {
           "__rl": true,
@@ -155,9 +155,9 @@
       "parameters": {
         "schema": {
           "__rl": true,
-          "value": "app",
+          "value": "job_hunter",
           "mode": "list",
-          "cachedResultName": "app"
+          "cachedResultName": "job_hunter"
         },
         "table": {
           "__rl": true,
@@ -425,7 +425,8 @@
         "rule": {
           "interval": [
             {
-              "field": "hours"
+              "field": "cronExpression",
+              "expression": "0 8,12,16,20 * * *"
             }
           ]
         }
@@ -480,9 +481,9 @@
       "parameters": {
         "schema": {
           "__rl": true,
-          "value": "app",
+          "value": "job_hunter",
           "mode": "list",
-          "cachedResultName": "app"
+          "cachedResultName": "job_hunter"
         },
         "table": {
           "__rl": true,
@@ -541,9 +542,9 @@
         "operation": "select",
         "schema": {
           "__rl": true,
-          "value": "app",
+          "value": "job_hunter",
           "mode": "list",
-          "cachedResultName": "app"
+          "cachedResultName": "job_hunter"
         },
         "table": {
           "__rl": true,
@@ -587,9 +588,9 @@
         "operation": "update",
         "schema": {
           "__rl": true,
-          "value": "app",
+          "value": "job_hunter",
           "mode": "list",
-          "cachedResultName": "app"
+          "cachedResultName": "job_hunter"
         },
         "table": {
           "__rl": true,
@@ -933,7 +934,8 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "timezone": "Asia/Manila"
   },
   "versionId": "edd686a0-8b1a-4799-acfc-0c71fbf856fe",
   "meta": {
