@@ -3,6 +3,10 @@ import jobspy_scraper
 
 app = Flask(__name__)
 
+@app.route("/health")
+def health():
+  return {"ok": True}
+
 @app.route("/scrape")
 def get_jobs():
   sites = request.args.get("sites", "indeed").split(",")
@@ -22,7 +26,7 @@ def get_jobs():
     type=type,
     offset=offset
     )
-  
+
   return jsonify(result)
 
 if __name__ == "__main__":
