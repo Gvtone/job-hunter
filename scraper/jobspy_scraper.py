@@ -1,21 +1,24 @@
 from jobspy import scrape_jobs
 from pandas import DataFrame
-import json
+import pandas as pd
 import argparse
+import json
 import sys
 
+SALARY_COLS = ["min_amount", "max_amount", "currency", "interval"]
+OUTPUT_COLS = ["id", "site", "job_url", "title", "company", "location", "salary",
+               "date_posted", "is_remote", "description", *SALARY_COLS]
 
-def get_jobs(sites:list, term:str, results:int, country:str, remote:bool, type:str, offset:int):
+
+class ScrapeError(Exception):
+  """Raised when JobSpy fails. Callers decide how to report it (exit code, HTTP status)."""
+
+
+def get_jobs(sites: list, term: str, results: int, country: str, remote: bool, type: str, offset: int):
+  google_search_term = f"{term} jobs in the Philippines since yesterday" if "google" in sites else None
+  location = "Philippines" if "linkedin" in sites else None
+
   try:
-    google_search_term = None
-    if ("google" in sites):
-      google_search_term = f"{term} jobs in the Philippines since yesterday"
-
-    location = None
-    linkedin_fetch_description = "linkedin" in sites
-    if ("linkedin" in sites):
-      location = "Philippines"
-
     jobs = scrape_jobs(
       site_name=sites,
       search_term=term,
@@ -23,65 +26,75 @@ def get_jobs(sites:list, term:str, results:int, country:str, remote:bool, type:s
       results_wanted=results,
       country_indeed=country,
       location=location,
-      linkedin_fetch_description=linkedin_fetch_description,
+      linkedin_fetch_description="linkedin" in sites,
       is_remote=remote,
       job_type=type,
-      offset=offset
+      offset=offset,
     )
-
-    return transform_jobs(jobs)
-  
   except Exception as e:
-    print(json.dumps({"error": str(e)}), file=sys.stderr)
-    sys.exit(1)  
+    raise ScrapeError(str(e)) from e
+
+  return transform_jobs(jobs)
+
+
+def _format_salary(row):
+  lo, hi = row["min_amount"], row["max_amount"]
+  if pd.isna(lo) and pd.isna(hi):
+    return None
+
+  if pd.notna(lo) and pd.notna(hi):
+    amount = f"{lo:,.0f} - {hi:,.0f}"
+  else:
+    single = lo if pd.notna(lo) else hi
+    amount = f"{single:,.0f}"
+
+  currency = row["currency"] if pd.notna(row["currency"]) else ""
+  interval = f"/{row['interval']}" if pd.notna(row["interval"]) else ""
+  return f"{amount} {currency}{interval}".strip()
+
 
 def transform_jobs(df: DataFrame):
-  if "min_amount" in df.columns:
-    df["salary"] = df.apply(
-      lambda row: f"{row['min_amount']} - {row['max_amount']} {row['currency']}/{row['interval']}"
-      if row["min_amount"] is not None
-      else None,
-      axis=1)
-  else:
-    df["salary"] = None
+  if df.empty:
+    return []
 
-  expected_cols = ["id", "site", "job_url", "title", "company", "location", "salary", "date_posted", "is_remote", "description"]
-  for col in expected_cols:
+  # Guarantee every column exists before anything reads it
+  for col in OUTPUT_COLS:
     if col not in df.columns:
       df[col] = None
 
-  new_df = df[expected_cols]
-  renamed_df = new_df.rename(columns={"id": "job_id", "site": "source", "job_url": "url", "date_posted": "posted_at"})
+  df["salary"] = df.apply(_format_salary, axis=1)
+  df["date_posted"] = df["date_posted"].apply(lambda d: d.isoformat() if pd.notna(d) else None)
 
-  # Replace any NaN with None so JSON serialization produces valid null
-  renamed_df = renamed_df.where(renamed_df.notnull(), None)
+  out = df[OUTPUT_COLS].rename(columns={
+    "id": "job_id", "site": "source", "job_url": "url", "date_posted": "posted_at",
+  })
 
-  return renamed_df.to_dict(orient="records")
+  # astype(object) first: float columns can't hold None, so pandas would turn it back into NaN
+  out = out.astype(object).where(out.notna(), None)
+
+  return out.to_dict(orient="records")
 
 
 def main():
   parser = argparse.ArgumentParser(description="Job Hunter Scraper")
-
   parser.add_argument("search_term", type=str, help="String used for searching jobs")
-  parser.add_argument("-s", "--site", type=str, nargs="+", default=["indeed"], help="Accepts may job sites" )
-  parser.add_argument("-rw", "--results_wanted", type=int, default=20, help="Amount of job listing to show")
-  parser.add_argument("-c", "--country", type=str, default="philippines", help="Which country should the job be based in")
-  parser.add_argument("-jt", "--job_type", type=str, default="fulltime", help="Type of job it should show")
-  parser.add_argument("-r", "--is_remote", action="store_true", help="Remote jobs")
+  parser.add_argument("-s", "--site", type=str, nargs="+", default=["indeed"], help="Job sites to search")
+  parser.add_argument("-rw", "--results_wanted", type=int, default=20, help="Number of job listings to return")
+  parser.add_argument("-c", "--country", type=str, default="philippines", help="Country for Indeed searches")
+  parser.add_argument("-jt", "--job_type", type=str, default="fulltime", help="Job type filter")
+  parser.add_argument("-r", "--is_remote", action="store_true", help="Remote jobs only")
   parser.add_argument("-o", "--offset", type=int, default=0, help="Start the search from an offset")
-
   args = parser.parse_args()
 
-  print(get_jobs(
-    sites=args.site,
-    term=args.search_term,
-    results=args.results_wanted,
-    country=args.country,
-    remote=args.is_remote,
-    type=args.job_type,
-    offset=args.offset
-    ))
+  try:
+    jobs = get_jobs(sites=args.site, term=args.search_term, results=args.results_wanted,
+                    country=args.country, remote=args.is_remote, type=args.job_type, offset=args.offset)
+  except ScrapeError as e:
+    print(json.dumps({"error": str(e)}), file=sys.stderr)
+    sys.exit(1)
+
+  print(json.dumps(jobs, default=str))
+
 
 if __name__ == "__main__":
   main()
-
