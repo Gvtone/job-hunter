@@ -51,3 +51,20 @@ CREATE TABLE job_hunter.search_offsets (
   term            TEXT PRIMARY KEY,
   current_offset  INTEGER DEFAULT 0
 );
+
+CREATE TABLE job_hunter.applications (
+  job_id      integer PRIMARY KEY REFERENCES job_hunter.jobs(id) ON DELETE RESTRICT,
+  status      text NOT NULL CHECK (status IN
+                ('interested', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn')),
+  applied_at  timestamptz,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  note        text
+);
+
+CREATE VIEW job_hunter.application_status AS
+SELECT a.*,
+       j.title, j.company, j.url,
+       CASE WHEN a.status = 'applied' AND a.applied_at < now() - interval '21 days'
+            THEN 'ghosted' ELSE a.status END AS effective_status
+FROM job_hunter.applications a
+JOIN job_hunter.jobs j ON j.id = a.job_id;
