@@ -1,33 +1,50 @@
 -- Job Hunter database schema
--- Run with: psql -U <user> -d <database> -f schema.sql
--- Assumes the `job_hunter` schema is isolated from n8n's own internal tables (which live in `public`).
+-- Run with: psql -U <user> -d <database> -v ON_ERROR_STOP=1 -f schema.sql
+-- The `job_hunter` schema is isolated from n8n's internal tables (which live in `public`).
 
 CREATE SCHEMA IF NOT EXISTS job_hunter;
 
 CREATE TABLE job_hunter.jobs (
-  id           SERIAL PRIMARY KEY,
-  job_id       TEXT UNIQUE NOT NULL,
-  source       TEXT NOT NULL,
-  title        TEXT NOT NULL,
-  company      TEXT,
-  location     TEXT,
-  is_remote    BOOLEAN,
-  url          TEXT,
-  description  TEXT,
-  salary       TEXT,
-  posted_at    TIMESTAMPTZ,
-  scraped_at   TIMESTAMPTZ DEFAULT NOW(),
-  ros_pass     BOOLEAN,
-  ros_reason   TEXT,
-  llm_score    INTEGER,
-  llm_apply    BOOLEAN,
-  llm_reason   TEXT,
-  llm_flags    TEXT[],
-  verdict_at   TIMESTAMPTZ
+  id                      SERIAL PRIMARY KEY,
+  job_id                  TEXT UNIQUE NOT NULL,          -- ID from the job board (dedup key)
+  source                  TEXT NOT NULL,
+  title                   TEXT NOT NULL,
+  company                 TEXT,
+  location                TEXT,
+  is_remote               BOOLEAN,                       -- job board's label; unreliable, not used in decisions
+  url                     TEXT,
+  description             TEXT,
+  salary                  TEXT,                          -- human-readable, as shown to the LLM
+  posted_at               TIMESTAMPTZ,
+  scraped_at              TIMESTAMPTZ DEFAULT NOW(),
+
+  -- LLM judgments
+  ros_status              TEXT CHECK (ros_status IN ('pass', 'unverified', 'fail')),
+  ros_reason              TEXT,
+  score_stack             SMALLINT,                      -- 0-3
+  score_experience        SMALLINT,                      -- 0-2
+  score_flags             SMALLINT,                      -- 0-3
+  llm_reason              TEXT,
+  llm_model               TEXT,
+
+  -- Computed in code (Compute Verdict node), not by the LLM
+  work_setup              TEXT CHECK (work_setup IN ('remote', 'hybrid', 'onsite', 'unclear')),
+  office_days_per_week    SMALLINT,                      -- hybrid only
+  score_salary            SMALLINT,                      -- 0-2, from salary_monthly_php
+  llm_flags               TEXT[],                        -- LLM judgment flags + code-derived flags
+  llm_score               INTEGER,                       -- sum of subscores, 0 if gated
+  llm_apply               BOOLEAN,
+  salary_monthly_php      INTEGER,                       -- lowest stated pay, normalized to monthly PHP
+  salary_source           TEXT,                          -- 'jobspy' | 'llm' | NULL
+  rules_version           SMALLINT,                      -- Compute Verdict rules that produced this verdict
+  verdict_at              TIMESTAMPTZ,
+
+  -- Legacy: kept in sync as (ros_status <> 'fail') for rows scored before ros_status existed
+  ros_pass                BOOLEAN
 );
 
-CREATE INDEX idx_jobs_source ON job_hunter.jobs(source);
-CREATE INDEX idx_jobs_llm_score ON job_hunter.jobs(llm_score);
+CREATE INDEX idx_jobs_source     ON job_hunter.jobs(source);
+CREATE INDEX idx_jobs_llm_score  ON job_hunter.jobs(llm_score);
 CREATE INDEX idx_jobs_scraped_at ON job_hunter.jobs(scraped_at);
 
 CREATE TABLE job_hunter.search_offsets (
