@@ -1,0 +1,850 @@
+{
+  "name": "Job Hunter Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        368
+      ],
+      "id": "1983d599-dfdd-4440-85c3-efe7eae1e800",
+      "name": "Telegram Trigger",
+      "webhookId": "c8b1ef62-0968-49ea-92ee-682ff0f025ae",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJkgFXNtMGFuAwkj",
+          "name": "Job Hunter Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cb8c74a3-1af7-4003-986a-5a6e9ac20a38",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "=error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Error"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "/stats",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ae31d433-cc7a-459c-a68b-91d53fe87a3b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Stats"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f20bd55d-9946-4c0e-bb26-ba38c56e6c02",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "mark",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Mark"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "63c14aa7-ed20-4868-83bb-f835c1e4450e",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "like",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Like"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "42a80337-9f3d-4cbf-aca9-ceaea2d4e427",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "unlike",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Unlike"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f8806965-23a7-4657-952d-bea7bdf767ec",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "/status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Status"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "49d06306-d9c2-412d-82e7-20b1ef4c639d",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "/liked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Liked"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        272
+      ],
+      "id": "d97ce148-1502-4061-a35b-c7d76a74c8b8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst s = r.by_status ?? {};\nconst n = k => s[k] ?? 0;\nconst order = ['interested', 'applied', 'interviewing', 'offer', 'rejected', 'ghosted', 'withdrawn'];\n\nconst sent = ['applied', 'interviewing', 'offer', 'rejected', 'ghosted', 'withdrawn'].reduce((t, k) => t + n(k), 0);\nconst responded = n('interviewing') + n('offer') + n('rejected');\nconst rate = sent ? Math.round(responded / sent * 100) : 0;\n\nconst text = [\n  '📊 Job Hunter',\n  '',\n  'Last 7 days',\n  `• Scored: ${r.scored_7d}`,\n  `• Alerted: ${r.alerted_7d}`,\n  '',\n  'Applications',\n  ...order.map(k => `• ${k}: ${n(k)}`),\n  '',\n  `Response rate: ${rate}% (${responded}/${sent})`,\n].join('\\n');\n\nreturn [{ json: { text, chat_id: $('Parse Command').first().json.chat_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -192
+      ],
+      "id": "beb15874-4e6d-4b6d-ad4c-48f8b11250f3",
+      "name": "Format Stats"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const STATUSES = ['interested', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn'];\nconst BUTTONS = { int: 'like', app: 'mark' };   // callback prefix → route\nconst msg = $json.message;\nconst cb = $json.callback_query;\n\n// Button taps\nif (cb) {\n  const [action, idStr] = String(cb.data ?? '').split(':');\n  const id = Number(idStr);\n  const route = BUTTONS[action] ?? null;\n  const valid = route && Number.isInteger(id) && id > 0;\n  return { json: {\n    kind: 'callback', callback_id: cb.id,\n    chat_id: cb.message.chat.id, message_id: cb.message.message_id,\n    ids: valid ? String(id) : '',\n    word: route === 'mark' ? 'applied' : null,\n    error: valid ? null : 'Unknown button', text: valid ? null : 'Unknown button',\n    route: valid ? route : 'error',\n  } };\n}\n\n// Typed commands\nconst text = (msg?.text ?? '').trim();\nconst [first = '', ...args] = text.split(/\\s+/);\nconst cmd = first.startsWith('/') ? first.split('@')[0].toLowerCase() : null;\nconst ids = [...new Set(args.map(Number).filter(n => Number.isInteger(n) && n > 0))];\nlet word = args.find(a => Number.isNaN(Number(a)))?.toLowerCase() ?? null;\n\nlet error = null;\nif (cmd === '/applied') {\n  word = 'applied';\n  if (ids.length === 0) error = 'Usage: /applied <id> [id...]\\nExample: /applied 132 145';\n}\nif (cmd === '/unlike' && ids.length === 0) {\n  error = 'Usage: /unlike <id> [id...]\\nExample: /unlike 132';\n}\nif (cmd === '/status' && (ids.length === 0 || !STATUSES.includes(word))) {\n  error = `Usage: /status <id> [id...] <status>\\nStatuses: ${STATUSES.join(', ')}\\nExample: /status 132 interviewing`;\n}\n\nconst ROUTES = { '/applied': 'mark', '/unlike': 'unlike' };\nconst route = error ? 'error' : (ROUTES[cmd] ?? cmd);\n\nreturn { json: {\n  kind: 'command', cmd, ids: ids.join(' '), word,\n  chat_id: msg?.chat?.id, error, text: error, route,\n} };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        368
+      ],
+      "id": "9173fa8d-465d-4b3e-ac7b-eb83c39ef4ae",
+      "name": "Parse Command"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT count(*)::int FROM job_hunter.jobs\n     WHERE verdict_at > now() - interval '7 days')                  AS scored_7d,\n  (SELECT count(*)::int FROM job_hunter.jobs\n     WHERE llm_apply AND verdict_at > now() - interval '7 days')    AS alerted_7d,\n  (SELECT coalesce(json_object_agg(effective_status, n), '{}'::json)\n     FROM (SELECT effective_status, count(*)::int AS n\n           FROM job_hunter.application_status GROUP BY 1) s)        AS by_status;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        -192
+      ],
+      "id": "fb8de15f-154f-4215-8e1f-d7cc013c7863",
+      "name": "Stats Query",
+      "credentials": {
+        "postgres": {
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "229adb89-8307-42de-aec3-f46a409aac40",
+              "leftValue": "={{ $json.message?.from?.id ?? $json.callback_query?.from?.id }}",
+              "rightValue": 8039219989,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        368
+      ],
+      "id": "3c15aaa2-15ca-4a2c-becb-c37dbaf7495b",
+      "name": "If: Authorized"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { chat_id: $json.chat_id, text: [\n  'Commands:',\n  '/stats — pipeline and application summary',\n  '/liked — jobs marked interested',\n  '/unlike <id> [id...] — remove a like',\n  '/applied <id> [id...] — mark as applied',\n  '/status <id> [id...] <status> — set any status',\n  '',\n  'Statuses: interested, applied, interviewing, offer, rejected, withdrawn',\n].join('\\n') } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        1056
+      ],
+      "id": "70418a91-de9d-469b-bf3d-4b716f14047e",
+      "name": "Help"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1568,
+        272
+      ],
+      "id": "b16823b3-7c10-4b14-bdc4-dcdb146ea33c",
+      "name": "Reply",
+      "webhookId": "1ba27b46-5b36-4c9b-a396-9d555eb9c990",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJkgFXNtMGFuAwkj",
+          "name": "Job Hunter Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst { chat_id, word } = $('Parse Command').first().json;\nconst fmt = a => a.map(id => `#${id}`).join(', ');\n\nconst lines = [];\nif (r.updated.length)   lines.push(`✅ ${fmt(r.updated)} → ${word}`);\nif (r.not_found.length) lines.push(`❓ No such job: ${fmt(r.not_found)}`);\n\nreturn [{ json: { chat_id, text: lines.join('\\n') || 'Nothing changed.' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        672
+      ],
+      "id": "f73cf4ae-bf4e-4890-9073-f1111093ad9f",
+      "name": "Format Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $input.first().json.jobs;\nconst { chat_id } = $('Parse Command').first().json;\n\nconst text = jobs.length === 0\n  ? 'No liked jobs yet.\\nMark one with: /status <id> interested'\n  : ['❤️ Liked jobs', '',\n     ...jobs.map(j => `#${j.job_id} ${j.title} — ${j.company ?? 'unknown'}\\n${j.url}`)\n    ].join('\\n\\n');\n\nreturn [{ json: { chat_id, text } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        864
+      ],
+      "id": "ffd5e63e-854e-442a-b2b5-16c06726d898",
+      "name": "Format Likes"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH req AS (\n  SELECT unnest(string_to_array($1, ' '))::int AS id\n),\nfound AS (\n  SELECT r.id FROM req r JOIN job_hunter.jobs j ON j.id = r.id\n),\nup AS (\n  INSERT INTO job_hunter.applications (job_id, status, applied_at)\n  SELECT id, 'applied', now() FROM found\n  ON CONFLICT (job_id) DO UPDATE\n    SET status     = 'applied',\n        applied_at = COALESCE(job_hunter.applications.applied_at, now()),\n        updated_at = now()\n    WHERE job_hunter.applications.status IN ('interested', 'applied')\n  RETURNING job_id\n)\nSELECT\n  (SELECT coalesce(array_agg(job_id ORDER BY job_id), '{}') FROM up)                  AS updated,\n  (SELECT coalesce(array_agg(id ORDER BY id), '{}') FROM found\n     WHERE id NOT IN (SELECT job_id FROM up))                                         AS skipped,\n  (SELECT coalesce(array_agg(id ORDER BY id), '{}') FROM req\n     WHERE id NOT IN (SELECT id FROM found))                                          AS not_found;",
+        "options": {
+          "queryReplacement": "={{ $json.ids }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        896,
+        0
+      ],
+      "id": "04d2db7c-d5e7-4de1-bb7d-86af1687b0ce",
+      "name": "Mark Query",
+      "credentials": {
+        "postgres": {
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH req AS (\n  SELECT unnest(string_to_array($1, ' '))::int AS id\n),\nfound AS (\n  SELECT r.id FROM req r JOIN job_hunter.jobs j ON j.id = r.id\n),\nup AS (\n  INSERT INTO job_hunter.applications (job_id, status, applied_at)\n  SELECT id, $2::text,\n         CASE WHEN $2::text IN ('applied', 'interviewing', 'offer', 'rejected') THEN now() END\n  FROM found\n  ON CONFLICT (job_id) DO UPDATE\n    SET status     = EXCLUDED.status,\n        applied_at = COALESCE(job_hunter.applications.applied_at, EXCLUDED.applied_at),\n        updated_at = now()\n  RETURNING job_id\n)\nSELECT\n  (SELECT coalesce(array_agg(job_id ORDER BY job_id), '{}') FROM up) AS updated,\n  (SELECT coalesce(array_agg(id ORDER BY id), '{}') FROM req\n     WHERE id NOT IN (SELECT id FROM found))  AS not_found;",
+        "options": {
+          "queryReplacement": "={{ $json.ids }},{{ $json.word }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        672
+      ],
+      "id": "7cc3eaa7-a322-4106-8574-1351c027f608",
+      "name": "Status Query",
+      "credentials": {
+        "postgres": {
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT coalesce(json_agg(t ORDER BY t.updated_at DESC), '[]'::json) AS jobs\nFROM (\n  SELECT job_id, left(title, 60) AS title, company, url, updated_at\n  FROM job_hunter.application_status\n  WHERE effective_status = 'interested'\n  ORDER BY updated_at DESC\n  LIMIT 20\n) t;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        864
+      ],
+      "id": "dc1d4ec8-6b8f-4271-9329-0a140078ffe0",
+      "name": "Liked Query",
+      "credentials": {
+        "postgres": {
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH req AS (\n  SELECT unnest(string_to_array($1, ' '))::int AS id\n),\ndel AS (\n  DELETE FROM job_hunter.applications a\n  USING req r\n  WHERE a.job_id = r.id AND a.status = 'interested'\n  RETURNING a.job_id\n)\nSELECT\n  (SELECT coalesce(array_agg(job_id ORDER BY job_id), '{}') FROM del)            AS removed,\n  (SELECT coalesce(array_agg(id ORDER BY id), '{}') FROM req\n     WHERE id NOT IN (SELECT job_id FROM del))                                   AS unchanged;",
+        "options": {
+          "queryReplacement": "={{ $json.ids }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        384
+      ],
+      "id": "3a5b6680-4881-43ec-84bd-6f41424d8325",
+      "name": "Unlike Query",
+      "credentials": {
+        "postgres": {
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH req AS (\n  SELECT unnest(string_to_array($1, ' '))::int AS id\n),\nfound AS (\n  SELECT r.id FROM req r JOIN job_hunter.jobs j ON j.id = r.id\n),\ncur AS (\n  SELECT a.job_id, a.status\n  FROM job_hunter.applications a JOIN found f ON f.id = a.job_id\n),\ndel AS (\n  DELETE FROM job_hunter.applications a\n  USING found f\n  WHERE a.job_id = f.id AND a.status = 'interested'\n  RETURNING a.job_id\n),\nins AS (\n  INSERT INTO job_hunter.applications (job_id, status)\n  SELECT id, 'interested' FROM found\n  WHERE id NOT IN (SELECT job_id FROM cur)\n  ON CONFLICT (job_id) DO NOTHING\n  RETURNING job_id\n)\nSELECT\n  (SELECT coalesce(array_agg(job_id), '{}') FROM ins)                            AS liked,\n  (SELECT coalesce(array_agg(job_id), '{}') FROM del)                            AS unliked,\n  (SELECT coalesce(array_agg(job_id), '{}') FROM cur\n     WHERE status <> 'interested')                                               AS skipped,\n  (SELECT coalesce(array_agg(id), '{}') FROM req\n     WHERE id NOT IN (SELECT id FROM found))                                     AS not_found;",
+        "options": {
+          "queryReplacement": "={{ $json.ids }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        192
+      ],
+      "id": "ea55545d-9d00-4fb5-a4fe-2c9ad3890cc1",
+      "name": "Like Toggle Query",
+      "credentials": {
+        "postgres": {
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst { chat_id } = $('Parse Command').first().json;\nconst fmt = a => a.map(id => `#${id}`).join(', ');\n\nconst lines = [];\nif (r.removed.length)   lines.push(`💔 Unliked: ${fmt(r.removed)}`);\nif (r.unchanged.length) lines.push(`↪️ Not liked (or already applied): ${fmt(r.unchanged)}`);\n\nreturn [{ json: { chat_id, text: lines.join('\\n') || 'Nothing changed.' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        384
+      ],
+      "id": "22184ef3-3050-40c2-a727-d480dac41196",
+      "name": "Format Unlike"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst p = $('Parse Command').first().json;\nconst id = p.ids;\n\nconst text = r.liked.length     ? `❤️ Liked #${id}`\n           : r.unliked.length   ? `💔 Unliked #${id}`\n           : r.skipped.length   ? `↪️ #${id} is already further along`\n           : r.not_found.length ? `❓ Job #${id} no longer exists`\n           : 'Tap ❤️ on an alert';\n\nreturn [{ json: { text, callback_id: p.callback_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        192
+      ],
+      "id": "2a1818ed-3353-4332-96cd-7c5e14ea893e",
+      "name": "Format Like"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst p = $('Parse Command').first().json;\nconst fmt = a => a.map(id => `#${id}`).join(', ');\n\nconst lines = [];\nif (r.updated.length)   lines.push(`✅ Marked applied: ${fmt(r.updated)}`);\nif (r.skipped.length)   lines.push(`↪️ Already further along (unchanged): ${fmt(r.skipped)}`);\nif (r.not_found.length) lines.push(`❓ No such job: ${fmt(r.not_found)}`);\n\nreturn [{ json: {\n  chat_id: p.chat_id, text: lines.join('\\n') || 'Nothing changed.',\n  kind: p.kind, callback_id: p.callback_id,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "1be6ad3d-4357-4f75-bb7c-2f8295a849d8",
+      "name": "Format Mark"
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.callback_id }}",
+        "additionalFields": {
+          "text": "={{ $json.text }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1568,
+        464
+      ],
+      "id": "f17f42a8-b4a6-4c32-a5b5-3b44a5e21e0b",
+      "name": "Answer Tap",
+      "webhookId": "68a04aeb-13d1-4a49-bfda-32c1c209e6fe",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJkgFXNtMGFuAwkj",
+          "name": "Job Hunter Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fd87e6e5-5105-4f16-9afa-b672e915e29f",
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "callback",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "c13ed656-c360-4a6a-9aa4-6f4c3e950673",
+      "name": "Is Button?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If: Authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stats Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Like Toggle Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unlike Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Liked Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Help",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stats Query": {
+      "main": [
+        [
+          {
+            "node": "Format Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Authorized": {
+      "main": [
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Stats": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Help": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Status": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Likes": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Query": {
+      "main": [
+        [
+          {
+            "node": "Format Mark",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Query": {
+      "main": [
+        [
+          {
+            "node": "Format Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Liked Query": {
+      "main": [
+        [
+          {
+            "node": "Format Likes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Like Toggle Query": {
+      "main": [
+        [
+          {
+            "node": "Format Like",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unlike Query": {
+      "main": [
+        [
+          {
+            "node": "Format Unlike",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Unlike": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Like": {
+      "main": [
+        [
+          {
+            "node": "Answer Tap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Mark": {
+      "main": [
+        [
+          {
+            "node": "Is Button?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Button?": {
+      "main": [
+        [
+          {
+            "node": "Answer Tap",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "HtdpRXN1k1KyOU2z",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "37892fce-eddf-4b63-9781-ae9e926e0222",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "89df3768fdc0467cdcc0f9fa62b8feac7747947744c7f73c89e51e7cb4d47605"
+  },
+  "nodeGroups": [],
+  "id": "aZ7fdwAxMfOduaob",
+  "tags": []
+}
