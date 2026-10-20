@@ -17,6 +17,7 @@ CREATE TABLE job_hunter.jobs (
   salary                  TEXT,                          -- human-readable, as shown to the LLM
   posted_at               TIMESTAMPTZ,
   scraped_at              TIMESTAMPTZ DEFAULT NOW(),
+  search_terms            TEXT[];
 
   -- LLM judgments
   ros_status              TEXT CHECK (ros_status IN ('pass', 'unverified', 'fail')),
