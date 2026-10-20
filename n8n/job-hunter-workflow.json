@@ -5,8 +5,11 @@
       "parameters": {},
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-432, 224],
-      "id": "459f401f-f617-4706-bf24-33da0e4d9e37",
+      "position": [
+        -512,
+        1408
+      ],
+      "id": "beb7be7b-a4e5-4796-bdce-85378ad2d13e",
       "name": "When clicking ‘Execute workflow’"
     },
     {
@@ -30,6 +33,10 @@
             {
               "name": "offset",
               "value": "={{ $json.current_offset }}"
+            },
+            {
+              "name": "remote",
+              "value": "false"
             }
           ]
         },
@@ -37,8 +44,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [688, 512],
-      "id": "f8d9ec80-a1f8-4f6c-9f70-612199371e8b",
+      "position": [
+        544,
+        1696
+      ],
+      "id": "0f11ff71-a7a3-4384-afd5-c3806082bca9",
       "name": "Send Request to the Flask Server",
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -46,12 +56,15 @@
     },
     {
       "parameters": {
-        "jsCode": "const seen = new Set();\nconst unique = [];\n\nfor (const item of $input.all()) {\n  if (!seen.has(item.json.job_id)) {\n    seen.add(item.json.job_id);\n    unique.push(item);\n  }\n}\n\nreturn unique;"
+        "jsCode": "// Dedupe by job_id, but keep every term that found the job (not just the first)\nconst byId = new Map();\n\nfor (const item of $input.all()) {\n  const j = item.json;\n  const kept = byId.get(j.job_id);\n  if (!kept) {\n    byId.set(j.job_id, { json: { ...j, search_terms: [...(j.search_terms ?? [])] } });\n  } else {\n    for (const t of j.search_terms ?? []) {\n      if (!kept.json.search_terms.includes(t)) kept.json.search_terms.push(t);\n    }\n  }\n}\n\nreturn [...byId.values()];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [688, 320],
-      "id": "93503899-2e2e-4eb8-b35d-42ed7cd88635",
+      "position": [
+        544,
+        1504
+      ],
+      "id": "790d9309-caa9-4bbf-8a89-192b68880869",
       "name": "Filter Duplicate Jobs"
     },
     {
@@ -81,14 +94,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [912, 320],
-      "id": "5ef19e6e-d95f-41aa-8d0e-f5f5ba5e95ef",
+      "position": [
+        768,
+        1504
+      ],
+      "id": "068daeab-8475-44a7-a20f-3814736d7992",
       "name": "Select Job From Table",
       "alwaysOutputData": true,
       "credentials": {
         "postgres": {
-          "id": "AuPWDsxSn4LeHgBi",
-          "name": "Postgres account"
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
         }
       }
     },
@@ -103,11 +119,11 @@
         "messages": {
           "values": [
             {
-              "content": "=You are a job-fit evaluator for Gerald, a backend developer with ~2 years of professional web development experience based in Santa Cruz, Laguna Philippines.\n\n## Gerald's Background\n- Main stack: NestJS, Node.js, TypeScript, REST APIs, PostgreSQL, Prisma, React, AWS (S3/CloudFront/IAM), Redis/BullMQ, Docker\n- Experience: ~2 years backend (JWT auth for 55k+ users, LiveKit video, AWS S3 49GB, led small teams)\n- Strongest differentiator: NestJS\n- Currently learning: React (frontend), Next.js\n- Adjacent but weak: PHP, Python (scripting/research), GraphQL (familiar)\n- Avoid: Java enterprise, .NET primary, SAP, Power Platform, mobile-only\n\n## ROS Compliance (Evaluate FIRST — hard gate)\nGerald has a Return of Service obligation to DOST-SEI. His employer MUST be legally registered and operating in the Philippines.\n\nPASS:\n- Philippine-registered companies (government or private)\n- Foreign-owned companies with a Philippine office that issues a PH Certificate of Employment\n- EOR structures where Gerald is employed by a PH-registered entity (Emapta, Boomering, RecruitGo, Stratpoint, Exist Global, Pointwest)\n- Remote/WFH is fine as long as the company itself is PH-based\n\nFAIL:\n- Foreign company with no Philippine presence hiring Filipinos remotely (WFH for overseas employer)\n- VA or contractor arrangements serving a non-PH company\n- \"Direct contractor\", \"freelance\", \"no benefits\" explicitly stated\n- Any setup where CoE would come from a foreign entity\n- Anonymous company with no verifiable PH presence\n\nIf ROS fails: set ros_pass=false, ros_reason explaining why, llm_score=0, llm_apply=false, llm_flags=[\"ROS FAIL\"], and stop scoring.\n\nIf ROS passes: immediately check when the job was posted. If the job was posted more than a month before {{ $now }}, set llm_score=0, llm_apply=false, llm_flags=[\"OLD JOB POST\"], and stop scoring.\n\n## Onsite/Hybrid Location Check (evaluate after ROS and OLD JOB POST pass)\n\nIf job is ONSITE: check if the job location is within 100km of Santa Cruz, Laguna (this includes Calamba, Los Baños, Cabuyao, Biñan, San Pablo, and the wider Metro Manila area — Manila, Quezon City, Makati, Pasig, Taguig). If the location is clearly outside this range (e.g., Cebu, Davao, Baguio, Lucena, or any other region/island), set llm_score=0, llm_apply=false, llm_flags=[\"LOCATION FAR\"], and stop scoring.\n\nIf job is HYBRID: first check the required office frequency.\n- If hybrid is once a week or less (including \"once or twice a month,\" \"quarterly,\" or unspecified-but-implied-low-frequency), apply the same 100km distance check as ONSITE above. If within range, continue scoring normally (do not penalize for being hybrid). If outside range, set llm_score=0, llm_apply=false, llm_flags=[\"LOCATION FAR\"], and stop scoring.\n- If hybrid is 2+ times a week, treat it like ONSITE regardless of distance — apply the same in-range/out-of-range logic, but flag \"HYBRID\" in addition to any other flags since frequent in-person presence is a real constraint even when nearby.\n\nIf the job location is ambiguous, missing, or blank (e.g., empty field, just \"Philippines\" or \"PH\" with no city/region specified), do NOT apply LOCATION FAR. Instead, add \"INVESTIGATION NEEDED\" to llm_flags and continue scoring normally — don't penalize or zero out a job over missing location detail alone.\n\nRemote jobs are exempt from this entire check, regardless of where the company itself is based.\n\n## Scoring (only if ROS passes) — Total: 0-10\n\n### Stack Fit (0-3)\n3 — NestJS explicitly mentioned OR 3+ core skills match (Node.js, TypeScript, PostgreSQL, REST APIs, React, AWS, Redis, Docker)\n2 — 2 core skills match, or Node.js/TypeScript without NestJS\n1 — Adjacent stack (PHP/Laravel, Python backend, GraphQL) — learnable gap\n0 — Entirely outside ecosystem (Java enterprise, .NET primary, SAP, mobile-only)\n\n### Experience Requirement (0-2)\n2 — 1-2 years required, clearly fits Gerald\n1 — 2-3 years, borderline fit\n0 — 3+ years required, significant reach\n\n### Green/Red Flags (0-3)\n3 — Multiple green flags, no red flags\n2 — Mostly positive, minor concerns\n1 — Mixed signals or one significant red flag\n0 — Multiple red flags\n\nGreen flags: EOR company name visible, PH office address listed, junior-friendly language, salary posted above floor, NestJS mentioned, day/mid shift stated\nRed flags: Foreign company signals with no PH entity, contractor/freelance language, time tracking required, anonymous company, salary well below floor, stack entirely outside ecosystem, posting older than 6 months, hybrid requiring 2+ days/week in office\n\n### Salary (0-2)\n2 — ₱45,000+/month (PH roles) or $15+/hour (global remote ROS-compliant)\n1 — ₱38,000-44,999/month or slightly below global floor\n0 — Below ₱38,000, explicitly below floor, or salary unknown (read description carefully)\n\nNote: If salary is not explicitly stated but description mentions compensation details, use those. If truly unknown, score 0 but do not penalize in llm_reason — note it as unknown.\n\n## llm_apply threshold\n- true if ros_pass=true AND llm_score >= 5\n- false if ros_pass=false OR llm_score < 5\n\n## llm_flags\nUse this array to flag important signals that affect the decision:\n- \"ROS FAIL\" — failed ROS gate\n- \"OLD JOB POST\" — job post is more than a month old\n- \"LOCATION FAR\" - job is outside the 100 km radius from Santa Cruz, Laguna\n- \"NIGHT SHIFT\" — shift starts 10PM or later PH time\n- \"HYBRID\" — requires regular office presence\n- \"ONSITE\" — fully onsite\n- \"SALARY UNKNOWN\" — no salary info found\n- \"SALARY BELOW FLOOR\" — salary posted but below ₱38,000\n- \"REACH ROLE\" — experience requirement is 3+ years\n- \"CONTRACT ROLE\" — fixed-term or contract, not permanent employment\n- \"INVESTIGATION NEEDED\" — company PH status unclear, needs manual verification\n- \"NESTJS MATCH\" — NestJS explicitly mentioned (positive flag)\n\n## Job Data\nTitle: $json.title\nCompany: $json.company\nLocation: $json.location\nIs Remote: $json.is_remote\nSalary: $json.salary\nDescription: $json.description\nPosted At: $json.posted_at\n\n## Output Format\nReturn ONLY valid JSON with no markdown, no backticks, no explanation. Just the raw JSON object:\n{\n  \"ros_pass\": true/false,\n  \"ros_reason\": \"one sentence explaining ROS decision\",\n  \"llm_score\": 0-10,\n  \"llm_apply\": true/false,\n  \"llm_reason\": \"2-3 sentences summarizing fit, key strengths, and concerns\",\n  \"llm_flags\": [\"FLAG1\", \"FLAG2\"]\n}",
+              "content": "=You are a job-fit evaluator for Gerald, a full stack developer with a backend strength and ~2 years of professional experience, based in Santa Cruz, Laguna, Philippines. You judge each category; downstream code computes the total score and makes every final decision. Never skip a category unless a gate below tells you to.\n\n## Gerald's Background\n- Positioning: full stack developer, strongest on the backend; open to full stack and backend roles\n- Main stack: TypeScript, Node.js, NestJS, Fastify, PostgreSQL, Prisma, Drizzle, REST APIs, JWT/Better Auth, Redis/BullMQ, React, Vite, Tailwind, Docker, GitHub Actions, AWS (S3/CloudFront)\n- Experience: junior backend developer at a PH software company (REST APIs for 4 client products, JWT auth for ~55k users, LiveKit live video for 200+ classes, Stripe payments, BullMQ-scheduled Puppeteer scrapers, led a 5-person team); backend intern lead before that; ~1 year embedded C++ firmware at a government research institute\n- Solo-shipped: a full stack app (NestJS + React, Dockerized, CI) and an n8n + LLM automation pipeline\n- Strongest differentiator: NestJS\n- Also strong: n8n workflow automation, web scraping, LLM integration\n- Currently learning: Next.js\n- Adjacent: Python (Flask services, computer-vision research), PHP, GraphQL, C++/ESP32\n- Out-of-ecosystem stacks: see the OUT-OF-ECOSYSTEM list under score_stack.\n\n## ROS Status (record it — do NOT stop scoring)\nGerald has a Return of Service obligation requiring a Philippine-registered employer. Classify the employer and continue scoring every category regardless of the result.\n\n\"pass\":\n- Philippine-registered companies (government or private), including PH IT services firms such as Stratpoint, Exist Global, Pointwest\n- Foreign-owned companies with a Philippine office that issues a PH Certificate of Employment\n- EOR structures where Gerald is employed by a PH-registered entity (e.g. Emapta, Boomering, RecruitGo)\n- Remote/WFH is fine as long as the employer itself is PH-based\n\n\"fail\" (only on explicit signals):\n- Foreign company with no Philippine presence hiring Filipinos remotely\n- VA or contractor arrangements serving a non-PH company\n- \"Direct contractor\", \"freelance\", or \"no benefits\" explicitly stated\n- Any setup where the CoE would come from a foreign entity\n\n\"unverified\": no explicit fail signals, but PH registration cannot be confirmed (confidential employer, unknown company, recruiter posting).\n\n## Work Setup & Location\nReference area: within 100km of Santa Cruz, Laguna — includes Calamba, Los Baños, Cabuyao, Biñan, San Pablo, and Metro Manila (Manila, Quezon City, Makati, Pasig, Taguig). Clearly outside: Cebu, Davao, Cagayan de Oro, Baguio, Lucena, any other region/island, or any location outside the Philippines.\n\nJudge from the description text, not the job board's location label — \"Hybrid remote\" listings are not remote. When the description body states a specific arrangement (e.g. \"Hybrid (MW office)\", \"4 days onsite\"), use it over the generic \"Work Location:\" line at the end of Indeed postings. If neither the description body nor a \"Work Location:\" line states the arrangement, use \"unclear\" — never assume onsite. A \"Work Location: In person\" line with no other arrangement stated counts as onsite. Report three fields:\n- work_setup: \"remote\" (no regular office attendance), \"hybrid\" (some required office days), \"onsite\" (office every working day), or \"unclear\".\n- office_days_per_week: for hybrid only, the required office days per week as an integer, rounding up (\"every Wednesday\" = 1, \"twice a month\" = 1, \"Mon to Thu onsite\" = 4). null if the frequency is unstated or the job is not hybrid.\n- office_in_range: for hybrid, onsite, or unclear — true if the office is within the reference area, false if clearly outside, null if the location is missing or only \"Philippines\"/\"PH\". null for remote.\n\nDo not add work-setup or location flags; downstream code derives them from these fields.\n\n## Role Type\ndev_role: false ONLY when the main job is clearly one of these: QA/testing (manual or automated), IT support or helpdesk, web design or CMS/site administration (content updates and site maintenance, not custom theme/plugin development), social media or digital marketing, data entry, PLC/industrial automation, or an internship/program for current students. Otherwise true, including mixed roles where writing application code is one major duty (product engineer, developer-analyst, full stack with QA duties). When unsure, true.\n\n## Scoring\n\n### score_stack (0-3): check the 0 rule FIRST; it overrides every other rule\nOUT-OF-ECOSYSTEM stacks: Java enterprise (Spring, Jakarta EE), .NET / C#, SAP / ABAP, low-code platforms (Microsoft Power Platform incl. Power Apps, Power Automate, PCF, Dataverse, Dynamics 365 customization; OutSystems; Mendix), legacy desktop (VB6, PowerBuilder, Delphi), mobile-only (Swift, Kotlin, Flutter, React Native with no web backend).\nThis list is closed: only the stacks named above can score 0. Any other stack (Angular, Vue, Go, Ruby, etc.) is scored by the rules below, never 0.\n\n0 — An OUT-OF-ECOSYSTEM stack is the PRIMARY stack: it appears in the job title, OR the description names it as the main language/platform the role builds in. Score 0 even if Node.js, TypeScript, React, or automation work is also mentioned. When scoring 0, name the primary stack in llm_reason.\n    NOT primary: mentioned only as \"nice to have\", \"familiarity with\", \"highly desired\", or one track/integration among several; or Node.js/TypeScript is explicitly accepted as an alternative. Then ignore it and use the rules below.\n3 — NestJS explicitly mentioned, OR 3+ core skills match (Node.js, TypeScript, NestJS, Fastify, PostgreSQL, REST APIs, React, Docker, AWS, Redis/BullMQ, n8n)\n2 — 2 core skills match; Node.js/TypeScript without NestJS; or an automation/integration role (n8n, Make, Zapier; not Power Automate) involving JavaScript/APIs\n1 — Adjacent stack (PHP/Laravel, Python backend, GraphQL, or no-code-only automation). Also 1 if the description names no specific languages or frameworks; do not infer a stack that isn't written.\n\n### score_experience (0-2)\n2 — 1-2 years required, or junior/entry-level\n1 — 2 to 3 years, borderline\n0 — more than 3 years required\n\n### score_flags (0-3)\n3 — Multiple green flags, no red flags\n2 — Mostly positive, minor concerns\n1 — Mixed signals or one significant red flag\n0 — Multiple red flags\n\nGreen flags: PH office address listed, EOR named, junior-friendly language, salary above floor, NestJS mentioned, day shift stated\nRed flags: time tracking required, confidential/anonymous employer, salary well below floor, stack outside the ecosystem\n\n### salary_monthly_php_stated\nIf the description or Salary field explicitly states a pay figure, convert its LOWEST stated amount to a monthly PHP integer (assume 160 work hours/month, $1 = ₱63). Otherwise null. Never estimate or infer pay that isn't stated.\n\n## llm_flags vocabulary (use only these exact strings)\n\"NIGHT SHIFT\" (scheduled hours that extend past 6PM or start before 6AM PH time, e.g. 5PM–2AM or US business hours; a schedule ending at 6PM does not count), \"CONTRACT ROLE\" (fixed-term or non-employee arrangement)\n\n## Input\nThe user message contains one job with: Title, Company, Location, Is Remote, Salary, Description, Posted At. Fields may be \"NOT PROVIDED\".\n\n## Output Format\nReturn ONLY a raw JSON object — no markdown, no backticks, no explanation:\n{\n  \"ros_status\": \"pass\" | \"unverified\" | \"fail\",\n  \"ros_reason\": \"one sentence explaining the ROS classification\",\n  \"work_setup\": \"remote\" | \"hybrid\" | \"onsite\" | \"unclear\",\n  \"office_days_per_week\": integer or null,\n  \"office_in_range\": true | false | null,\n  \"dev_role\": true | false,\n  \"score_stack\": 0-3,\n  \"score_experience\": 0-2,\n  \"score_flags\": 0-3,\n  \"salary_monthly_php_stated\": integer or null,\n  \"llm_reason\": \"2-3 sentences summarizing fit, key strengths, and concerns\",\n  \"llm_flags\": [\"FLAG1\", \"FLAG2\"]\n}",
               "role": "model"
             },
             {
-              "content": "=Please evaluate this job:\n\nTitle: {{ $json.title }}\nCompany: {{ $json.company }}\nLocation: {{ $json.location }}\nIs Remote: {{ $json.is_remote }}\nSalary: {{ $json.salary }}\nDescription: {{ $json.description }}\nPosted At: {{ $json.posted_at }}"
+              "content": "=Please evaluate this job:\n\nTitle: {{ $json.title }}\nCompany: {{ $json.company || 'NOT PROVIDED' }}\nLocation: {{ $json.location || 'NOT PROVIDED' }}\nIs Remote: {{ $json.is_remote ?? 'NOT PROVIDED' }}\nSalary: {{ $json.salary || 'NOT PROVIDED' }}\nDescription: {{ $json.description }}\nPosted At: {{ $json.posted_at }}"
             }
           ]
         },
@@ -117,8 +133,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
-      "position": [1584, 320],
-      "id": "e230711e-af20-4a02-8718-dd0daca3532f",
+      "position": [
+        1440,
+        1504
+      ],
+      "id": "350aa452-bed1-4a20-a84f-156cdcd136a4",
       "name": "Message a model",
       "executeOnce": false,
       "retryOnFail": true,
@@ -126,19 +145,22 @@
       "maxTries": 2,
       "credentials": {
         "googlePalmApi": {
-          "id": "GRbgKGRCOAzCSZei",
-          "name": "Google Gemini(PaLM) Api account"
+          "id": "GmvWCTA3BgnBVvuK",
+          "name": "Job Hunter Gemini LLM"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().map(item => ({\n  json: JSON.parse(item.json.content.parts[0].text)\n}));"
+        "jsCode": "// return $input.all().map(item => ({\n//   json: JSON.parse(item.json.content.parts[0].text)\n// }));\n\nreturn $input.all().map(item => {\n  const raw = item.json.content.parts[0].text;\n  return { json: JSON.parse(String(raw).replace(/```json|```/g, '').trim()) };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1648, 128],
-      "id": "f4255516-b421-4a50-bc4e-00a132ca3804",
+      "position": [
+        1504,
+        1312
+      ],
+      "id": "b080b64d-1cdf-4f74-a3b9-60d4f6c0da81",
       "name": "Parse Data"
     },
     {
@@ -147,8 +169,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1936, 128],
-      "id": "5c153e8a-684a-4160-bb88-2ba371ee096e",
+      "position": [
+        1728,
+        1312
+      ],
+      "id": "b70ccea6-da09-4ef1-b384-db708d00011f",
       "name": "Combine Job and LLM Data"
     },
     {
@@ -184,9 +209,23 @@
             "ros_reason": "={{ $json.ros_reason }}",
             "llm_reason": "={{ $json.llm_reason }}",
             "llm_flags": "={{ $json.llm_flags }}",
-            "verdict_at": "={{ $now }}"
+            "verdict_at": "={{ $now }}",
+            "score_stack": "={{ $json.score_stack }}",
+            "score_flags": "={{ $json.score_flags }}",
+            "score_experience": "={{ $json.score_experience }}",
+            "score_salary": "={{ $json.score_salary }}",
+            "salary_monthly_php": "={{ $json.salary_monthly_php }}",
+            "ros_status": "={{ $json.ros_status }}",
+            "salary_source": "={{ $json.salary_source }}",
+            "llm_model": "={{ $json.llm_model }}",
+            "work_setup": "={{ $json.work_setup }}",
+            "office_days_per_week": "={{ $json.office_days_per_week }}",
+            "rules_version": "={{ $json.rules_version }}",
+            "search_terms": "={{ $json.search_terms }}"
           },
-          "matchingColumns": ["id"],
+          "matchingColumns": [
+            "id"
+          ],
           "schema": [
             {
               "id": "id",
@@ -205,7 +244,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "source",
@@ -214,7 +254,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "title",
@@ -223,7 +264,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "company",
@@ -232,7 +274,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "location",
@@ -241,7 +284,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "is_remote",
@@ -250,7 +294,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "boolean",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "url",
@@ -259,7 +304,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "description",
@@ -268,7 +314,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "salary",
@@ -277,7 +324,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "posted_at",
@@ -286,7 +334,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "dateTime",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "scraped_at",
@@ -305,7 +354,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "boolean",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "ros_reason",
@@ -314,17 +364,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "salary_pass",
-              "displayName": "salary_pass",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "boolean",
               "canBeUsedToMatch": true,
-              "removed": true
+              "removed": false
             },
             {
               "id": "llm_score",
@@ -333,7 +374,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "number",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "llm_apply",
@@ -342,7 +384,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "boolean",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "llm_reason",
@@ -351,7 +394,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "llm_flags",
@@ -360,7 +404,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "array",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "verdict_at",
@@ -369,7 +414,128 @@
               "defaultMatch": false,
               "display": true,
               "type": "dateTime",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score_stack",
+              "displayName": "score_stack",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score_experience",
+              "displayName": "score_experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score_flags",
+              "displayName": "score_flags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score_salary",
+              "displayName": "score_salary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ros_status",
+              "displayName": "ros_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "salary_monthly_php",
+              "displayName": "salary_monthly_php",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "salary_source",
+              "displayName": "salary_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "llm_model",
+              "displayName": "llm_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "work_setup",
+              "displayName": "work_setup",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "office_days_per_week",
+              "displayName": "office_days_per_week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rules_version",
+              "displayName": "rules_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "search_terms",
+              "displayName": "search_terms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "array",
+              "canBeUsedToMatch": true,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -379,13 +545,16 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2160, 128],
-      "id": "0cfe1818-c39f-4222-a95a-45d8a2372630",
+      "position": [
+        2192,
+        1312
+      ],
+      "id": "98d84b0b-c38f-4b88-b998-6705c13f517a",
       "name": "Insert Job and Verdict Data",
       "credentials": {
         "postgres": {
-          "id": "AuPWDsxSn4LeHgBi",
-          "name": "Postgres account"
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
         }
       }
     },
@@ -416,8 +585,11 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2384, 128],
-      "id": "dadaa456-ee50-48d8-be36-66f8653f55f0",
+      "position": [
+        2416,
+        1312
+      ],
+      "id": "29fabfda-2f48-40a5-be1e-cce37a1067a4",
       "name": "If Should Apply"
     },
     {
@@ -433,19 +605,13 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [-432, 416],
-      "id": "ee0735f3-451f-4ddf-8962-1dd2af2bcec9",
+      "position": [
+        -512,
+        1600
+      ],
+      "id": "95b22cf7-49c3-46a8-87fa-936e6683dd29",
       "name": "Schedule Trigger",
       "alwaysOutputData": false
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [1936, 400],
-      "id": "f07900c4-7427-4131-9672-24859d08d35b",
-      "name": "Wait",
-      "webhookId": "8365641d-03b3-48f5-8f3e-7e208799f961"
     },
     {
       "parameters": {
@@ -453,8 +619,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1136, 320],
-      "id": "0dc069a4-afdd-464e-a7ab-49a4507ad75f",
+      "position": [
+        992,
+        1504
+      ],
+      "id": "ebb407ae-e88f-4cbe-9b80-308af7081f51",
       "name": "Filter Already Existing in Database"
     },
     {
@@ -463,8 +632,11 @@
       },
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [464, 512],
-      "id": "8cc70f1e-fb66-40c1-bd0b-e643da74d112",
+      "position": [
+        320,
+        1696
+      ],
+      "id": "8a57bc3b-bfa3-4094-ab61-d128c9401d1f",
       "name": "Loop Over Terms"
     },
     {
@@ -473,8 +645,11 @@
       },
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [1360, 320],
-      "id": "622a97aa-7c4b-477c-b37e-201af27e4657",
+      "position": [
+        1216,
+        1504
+      ],
+      "id": "678185f1-f300-4866-badc-2ae717e0da0f",
       "name": "Loop Over Jobs"
     },
     {
@@ -527,13 +702,16 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [16, 224],
-      "id": "84a38ce8-0f36-4c96-9be9-f83f2d93fbce",
+      "position": [
+        -64,
+        1408
+      ],
+      "id": "f17d8b76-e070-4fe1-89af-838a2f4f8638",
       "name": "Insert New Terms",
       "credentials": {
         "postgres": {
-          "id": "AuPWDsxSn4LeHgBi",
-          "name": "Postgres account"
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
         }
       }
     },
@@ -564,24 +742,132 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [16, 512],
-      "id": "21eb083f-0f9c-4d2a-94c0-d15655375bb3",
+      "position": [
+        -64,
+        1696
+      ],
+      "id": "fb5b2eb4-2a1b-4ecc-987c-2c7718a62863",
       "name": "Select Current Term Offset",
       "credentials": {
         "postgres": {
-          "id": "AuPWDsxSn4LeHgBi",
-          "name": "Postgres account"
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
         }
       }
     },
     {
       "parameters": {},
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [912, 592],
-      "id": "a7d8b83d-e103-4d1b-973f-2f6094010014",
-      "name": "Wait1",
-      "webhookId": "12b5070e-f06a-4c7a-91f4-6fa359a165a2"
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        2000
+      ],
+      "id": "6cf37de9-aeac-4b77-ba56-d0cfbaa42310",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "chatId": "8039219989",
+        "text": "=🟢 New job match!\n\n*{{ $json.title }}* at {{ $json.company }}\n\n{{ $json.ros_status === 'fail'\n   ? '💸 ROS BUYOUT candidate — ₱' + $json.salary_monthly_php.toLocaleString() + '/mo (' + $json.salary_source + ')'\n   : $json.ros_status === 'unverified' ? '⚠️ ROS unverified' : '✅ ROS compliant' }}\n\nJob ID: #{{ $json.id }}\n\n- Score: {{ $json.llm_score }}/10\n- Location: {{ $json.location }}\n- Salary: {{ $json.salary_monthly_php ? '₱' + Number($json.salary_monthly_php).toLocaleString() + '/mo (' + $json.salary_source + ')' : 'not stated' }}\n- Flags: {{ $json.llm_flags }}\n\n{{ $json.llm_reason }} \n\nApply: {{ $json.url }}\n\n",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "❤️ Interested",
+                    "additionalFields": {
+                      "callback_data": "=int:{{ $json.id }}"
+                    }
+                  },
+                  {
+                    "text": "✅ Applied",
+                    "additionalFields": {
+                      "callback_data": "=app:{{ $json.id }}"
+                    }
+                  },
+                  {
+                    "text": "🔗 Open posting",
+                    "additionalFields": {
+                      "url": "={{ $json.url }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2640,
+        1312
+      ],
+      "id": "d72171ab-fd76-4c3b-8794-e6a2ad454f9e",
+      "name": "Send New Job Match",
+      "webhookId": "a072530f-cc4b-4a13-8d8f-a67304f1a823",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJkgFXNtMGFuAwkj",
+          "name": "Job Hunter Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8039219989",
+        "text": "=🔴 Error executing workflow\n\n- Error: {{ $json.execution.error.message }}\n- Last Node Executed: {{ $json.execution.lastNodeExecuted }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -288,
+        2000
+      ],
+      "id": "f254d513-a26f-40fc-96b2-4cb971135724",
+      "name": "Send a text message",
+      "webhookId": "cd0f6573-d490-43e3-adc9-d05522aa9ab6",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJkgFXNtMGFuAwkj",
+          "name": "Job Hunter Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { term: \"nodejs developer\" } },\n  { json: { term: \"backend developer\" } },\n  { json: { term: \"fullstack developer\" } },\n  { json: { term: \"software engineer\" } },\n  { json: { term: \"typescript developer\" } },\n  { json: { term: \"backend engineer nestjs\" } }\n]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        1504
+      ],
+      "id": "a6b18776-dc08-444c-8024-b4694482666b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compute Verdict — Run Once for All Items\nconst ROS_BUYOUT_MIN_PHP = 60000;   // minimum monthly pay for a non-ROS job\nconst PASS_SCORE = 5;\nconst USD_PHP = 63;                 // approximate; update occasionally\nconst MODEL = 'gemini-3.1-flash-lite';\nconst MAX_AGE_DAYS = 31;\nconst MAX_OFFICE_DAYS = 2;          // hybrid above this is gated as 'OFFICE 3+ DAYS'\nconst SALARY_FULL = 45000;          // score_salary 2 at or above\nconst SALARY_PARTIAL = 38000;       // score_salary 1 at or above\nconst GATES = ['OLD JOB POST', 'LOCATION FAR', 'ONSITE', 'OFFICE 3+ DAYS', 'STACK MISMATCH', 'NOT DEV ROLE'];\nconst PER_MONTH = { yearly: 1/12, monthly: 1, weekly: 52/12, daily: 22, hourly: 160 };\nconst RULES_VERSION = 6;\n\n// Flags this node owns. Any copy the LLM emits is discarded and recomputed.\nconst CODE_FLAGS = ['OLD JOB POST', 'DATE UNKNOWN', 'ONSITE', 'HYBRID', 'OFFICE 3+ DAYS',\n  'LOCATION FAR', 'LOCATION UNCLEAR', 'SETUP UNCLEAR', 'SALARY UNKNOWN', 'SALARY BELOW FLOOR', 'ROS BUYOUT', 'STACK MISMATCH', 'REACH ROLE', 'NESTJS MATCH', 'NOT DEV ROLE'];\n\nconst clamp = (n, max) => Math.max(0, Math.min(max, Math.round(Number(n)) || 0));\nconst toMonthlyPhp = (amt, interval, currency) => {\n  if (amt == null || !PER_MONTH[interval]) return null;\n  const fx = currency === 'PHP' ? 1 : currency === 'USD' ? USD_PHP : null;\n  return fx ? Math.round(Number(amt) * PER_MONTH[interval] * fx) : null;\n};\n\nreturn $input.all().map(item => {\n  const j = item.json;\n  const llm_flags = (Array.isArray(j.llm_flags) ? j.llm_flags : []).filter(f => !CODE_FLAGS.includes(f));\n\n  // 1. Post date\n  const postedMs = j.posted_at ? new Date(j.posted_at).getTime() : NaN;\n  if (Number.isNaN(postedMs)) llm_flags.push('DATE UNKNOWN');\n  else if ((Date.now() - postedMs) / 86_400_000 > MAX_AGE_DAYS) llm_flags.push('OLD JOB POST');\n\n  // 2. Work setup and location: from the LLM's required fields, never from is_remote\n  const work_setup = ['remote', 'hybrid', 'onsite'].includes(j.work_setup) ? j.work_setup : 'unclear';\n  const office_days_per_week = work_setup === 'hybrid' && Number.isInteger(j.office_days_per_week)\n    ? j.office_days_per_week : null;\n\n  if (work_setup === 'onsite') llm_flags.push('ONSITE');\n  else if (work_setup === 'hybrid') {\n    llm_flags.push(office_days_per_week !== null && office_days_per_week > MAX_OFFICE_DAYS ? 'OFFICE 3+ DAYS' : 'HYBRID');\n  } else if (work_setup === 'unclear') llm_flags.push('SETUP UNCLEAR');\n\n  if (work_setup !== 'remote') {\n    if (j.office_in_range === false) llm_flags.push('LOCATION FAR');\n    else if (j.office_in_range !== true) llm_flags.push('LOCATION UNCLEAR');\n  }\n\n  // 3. Salary: JobSpy first, the LLM's stated figure as fallback; scored by rule\n  const fromJobspy = toMonthlyPhp(j.min_amount ?? j.max_amount, j.interval, j.currency);\n  const fromLlm = j.salary_monthly_php_stated == null ? null\n                : Math.round(Number(j.salary_monthly_php_stated)) || null;\n  const salary_monthly_php = fromJobspy ?? fromLlm;\n  const salary_source = fromJobspy != null ? 'jobspy' : fromLlm != null ? 'llm' : null;\n\n  let salaryScore = 0;\n  if (salary_monthly_php == null) llm_flags.push('SALARY UNKNOWN');\n  else if (salary_monthly_php >= SALARY_FULL) salaryScore = 2;\n  else if (salary_monthly_php >= SALARY_PARTIAL) salaryScore = 1;\n  else llm_flags.push('SALARY BELOW FLOOR');\n\n  // 3b. Stack: an out-of-ecosystem primary stack is a hard no. Check the raw value,\n  // not the clamped one, so a missing or garbled score never gates a job by accident.\n  if (j.score_stack === 0) llm_flags.push('STACK MISMATCH');\n\n  // 3c. Role type: same fail-open rule. Only an explicit false gates.\n  if (j.dev_role === false) llm_flags.push('NOT DEV ROLE');\n\n  // 4. Gates zero the total, not the subscores, so gated jobs keep their would-be scores\n  const gated = llm_flags.some(f => GATES.includes(f));\n  const scores = {\n    score_stack:      clamp(j.score_stack, 3),\n    score_experience: clamp(j.score_experience, 2),\n    score_flags:      clamp(j.score_flags, 3),\n    score_salary:     salaryScore,\n  };\n\n  if (scores.score_experience === 0) llm_flags.push('REACH ROLE');\n  if (/\\bnest\\.?js\\b/i.test(`${j.title ?? ''} ${j.description ?? ''}`)) llm_flags.push('NESTJS MATCH');\n  \n  const potential = Object.values(scores).reduce((a, b) => a + b, 0);\n  const llm_score = gated ? 0 : potential;\n\n  // 5. ROS: unexpected values become 'unverified', never silently 'pass'\n  const ros_status = ['pass', 'unverified', 'fail'].includes(j.ros_status) ? j.ros_status : 'unverified';\n  const buyout = ros_status === 'fail' && salary_monthly_php != null && salary_monthly_php >= ROS_BUYOUT_MIN_PHP;\n  if (buyout) llm_flags.push('ROS BUYOUT');\n\n  // 6. Decision\n  const llm_apply = !gated && llm_score >= PASS_SCORE && (ros_status !== 'fail' || buyout);\n\n  return { json: {\n    ...j, ...scores, llm_flags, llm_score, llm_apply,\n    ros_status, ros_pass: ros_status !== 'fail',\n    work_setup, office_days_per_week,\n    salary_monthly_php, salary_source,\n    llm_model: MODEL, rules_version: RULES_VERSION\n  }};\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1952,
+        1312
+      ],
+      "id": "70a3eed0-9d47-49fa-a403-3df1ab87eaf6",
+      "name": "Compute Verdict"
     },
     {
       "parameters": {
@@ -601,10 +887,12 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "current_offset": "={{ ($json.current_offset + 10) % 30 }}",
+            "current_offset": "={{ ($json.current_offset + 10) % 40 }}",
             "term": "={{ $json.term }}"
           },
-          "matchingColumns": ["term"],
+          "matchingColumns": [
+            "term"
+          ],
           "schema": [
             {
               "id": "term",
@@ -633,71 +921,56 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [240, 512],
-      "id": "15d5c575-583e-4731-84fb-6b44027cbe78",
-      "name": "Update rows in a table",
+      "position": [
+        128,
+        1696
+      ],
+      "id": "129fb30c-4bed-47f8-b07d-9c8c13522cd3",
+      "name": "Update Page Offset",
       "credentials": {
         "postgres": {
-          "id": "AuPWDsxSn4LeHgBi",
-          "name": "Postgres account"
+          "id": "OCZz0CfyWxZmoLXM",
+          "name": "Main n8nPostgres DB"
         }
       }
     },
     {
       "parameters": {},
-      "type": "n8n-nodes-base.errorTrigger",
-      "typeVersion": 1,
-      "position": [-432, 816],
-      "id": "a774c4db-495d-41dd-9a55-67fe045e9557",
-      "name": "Error Trigger"
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        992,
+        1776
+      ],
+      "id": "99c48188-21b7-4e8a-a65d-7223077a1073",
+      "name": "Wait Before Scraping",
+      "webhookId": "12b5070e-f06a-4c7a-91f4-6fa359a165a2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        1584
+      ],
+      "id": "ca4fed74-3405-4ccd-9450-fa901492d74a",
+      "name": "Wait Before Asking",
+      "webhookId": "8365641d-03b3-48f5-8f3e-7e208799f961"
     },
     {
       "parameters": {
-        "chatId": "8039219989",
-        "text": "=🟢 New job match!\n\n*{{ $json.title }}* at {{ $json.company }}\n\n- Score: {{ $json.llm_score }}/10\n- Location: {{ $json.location }}\n- Flags: {{ $json.llm_flags }}\n\n{{ $json.llm_reason }} \n\nApply: {{ $json.url }}",
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [2608, 128],
-      "id": "2fa51535-af20-426b-8077-f28e947a25b9",
-      "name": "Send New Job Match",
-      "webhookId": "a072530f-cc4b-4a13-8d8f-a67304f1a823",
-      "credentials": {
-        "telegramApi": {
-          "id": "JEoBIDHKfNL02Xqr",
-          "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "chatId": "8039219989",
-        "text": "=🔴 Error executing workflow\n\n- Error: {{ $json.execution.error.message }}\n- Last Node Executed: {{ $json.execution.lastNodeExecuted }}",
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [-208, 816],
-      "id": "bdc246bb-fd6d-4a58-8a27-1a0e4132b8ac",
-      "name": "Send a text message",
-      "webhookId": "cd0f6573-d490-43e3-adc9-d05522aa9ab6",
-      "credentials": {
-        "telegramApi": {
-          "id": "JEoBIDHKfNL02Xqr",
-          "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "return [\n  { json: { term: \"nodejs developer\" } },\n  { json: { term: \"backend developer\" } },\n  { json: { term: \"fullstack developer\" } },\n  { json: { term: \"software engineer\" } },\n  { json: { term: \"typescript developer\" } },\n  { json: { term: \"backend engineer nestjs\" } }\n]"
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ...$json, search_terms: [$('Loop Over Terms').item.json.term] } };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-208, 320],
-      "id": "8d896e93-d663-486e-bdb2-c5e39ab8980d",
-      "name": "Code in JavaScript"
+      "position": [
+        784,
+        1776
+      ],
+      "id": "74751abd-961b-42b4-a59e-ba30e65b71a8",
+      "name": "Tag Result"
     }
   ],
   "pinData": {},
@@ -717,7 +990,7 @@
       "main": [
         [
           {
-            "node": "Wait1",
+            "node": "Tag Result",
             "type": "main",
             "index": 0
           }
@@ -750,7 +1023,7 @@
       "main": [
         [
           {
-            "node": "Wait",
+            "node": "Wait Before Asking",
             "type": "main",
             "index": 0
           }
@@ -772,7 +1045,7 @@
       "main": [
         [
           {
-            "node": "Insert Job and Verdict Data",
+            "node": "Compute Verdict",
             "type": "main",
             "index": 0
           }
@@ -806,17 +1079,6 @@
         [
           {
             "node": "Code in JavaScript",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Jobs",
             "type": "main",
             "index": 0
           }
@@ -874,29 +1136,7 @@
       "main": [
         [
           {
-            "node": "Update rows in a table",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait1": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Terms",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update rows in a table": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Terms",
+            "node": "Update Page Offset",
             "type": "main",
             "index": 0
           }
@@ -929,20 +1169,79 @@
           }
         ]
       ]
+    },
+    "Compute Verdict": {
+      "main": [
+        [
+          {
+            "node": "Insert Job and Verdict Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Page Offset": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Terms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Scraping": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Terms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Asking": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Result": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Scraping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
-    "timezone": "Asia/Manila"
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "HtdpRXN1k1KyOU2z"
   },
-  "versionId": "edd686a0-8b1a-4799-acfc-0c71fbf856fe",
+  "versionId": "fa576110-cec6-4231-948c-6fed7856de3f",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "9621b2c2fefd2a4a2e420a9b96807884429f70ae5110bf15022be37ff66657e1"
+    "instanceId": "89df3768fdc0467cdcc0f9fa62b8feac7747947744c7f73c89e51e7cb4d47605"
   },
   "nodeGroups": [],
-  "id": "DIUsm6M1sXhqKTi9",
+  "id": "HtdpRXN1k1KyOU2z",
   "tags": []
 }
