@@ -112,9 +112,8 @@
       "parameters": {
         "modelId": {
           "__rl": true,
-          "value": "models/gemini-3.1-flash-lite",
-          "mode": "list",
-          "cachedResultName": "models/gemini-3.1-flash-lite"
+          "value": "models/does-not-exist",
+          "mode": "id"
         },
         "messages": {
           "values": [
@@ -142,17 +141,18 @@
       "executeOnce": false,
       "retryOnFail": true,
       "waitBetweenTries": 5000,
-      "maxTries": 2,
+      "maxTries": 5,
       "credentials": {
         "googlePalmApi": {
           "id": "GmvWCTA3BgnBVvuK",
           "name": "Job Hunter Gemini LLM"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// return $input.all().map(item => ({\n//   json: JSON.parse(item.json.content.parts[0].text)\n// }));\n\nreturn $input.all().map(item => {\n  const raw = item.json.content.parts[0].text;\n  return { json: JSON.parse(String(raw).replace(/```json|```/g, '').trim()) };\n});"
+        "jsCode": "// One output per input, always. Combine pairs by index, so never drop items here.\nreturn $input.all().map(item => {\n  if (item.json.llm_failed) {\n    return { json: { llm_failed: true, llm_error: item.json.llm_error } };\n  }\n  try {\n    const raw = item.json.content.parts[0].text;\n    return { json: JSON.parse(String(raw).replace(/```json|```/g, '').trim()) };\n  } catch (e) {\n    return { json: { llm_failed: true, llm_error: 'Unparseable LLM output: ' + e.message } };\n  }\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -546,7 +546,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        2192,
+        2432,
         1312
       ],
       "id": "98d84b0b-c38f-4b88-b998-6705c13f517a",
@@ -586,7 +586,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2416,
+        2656,
         1312
       ],
       "id": "29fabfda-2f48-40a5-be1e-cce37a1067a4",
@@ -806,7 +806,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2640,
+        2880,
         1312
       ],
       "id": "d72171ab-fd76-4c3b-8794-e6a2ad454f9e",
@@ -863,7 +863,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1952,
+        2192,
         1312
       ],
       "id": "70a3eed0-9d47-49fa-a403-3df1ab87eaf6",
@@ -951,8 +951,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1792,
-        1584
+        1952,
+        1600
       ],
       "id": "ca4fed74-3405-4ccd-9450-fa901492d74a",
       "name": "Wait Before Asking",
@@ -971,6 +971,53 @@
       ],
       "id": "74751abd-961b-42b4-a59e-ba30e65b71a8",
       "name": "Tag Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "return { json: { llm_failed: true, llm_error: String($json.error?.message ?? $json.error ?? 'unknown error') } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        1600
+      ],
+      "id": "351ae804-befd-4b28-8af1-04f1d5029a50",
+      "name": "Mark LLM Failed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2476abd1-4e14-4028-a435-264fac3f2288",
+              "leftValue": "={{ $json.llm_failed === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1968,
+        1312
+      ],
+      "id": "5c8f0e4c-571c-40be-987a-2a7b3fcf15e4",
+      "name": "Drop LLM Failures"
     }
   ],
   "pinData": {},
@@ -1027,6 +1074,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Mark LLM Failed",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -1045,7 +1099,7 @@
       "main": [
         [
           {
-            "node": "Compute Verdict",
+            "node": "Drop LLM Failures",
             "type": "main",
             "index": 0
           }
@@ -1224,6 +1278,28 @@
           }
         ]
       ]
+    },
+    "Mark LLM Failed": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Asking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drop LLM Failures": {
+      "main": [
+        [
+          {
+            "node": "Compute Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -1236,7 +1312,7 @@
     "availableInMCP": false,
     "errorWorkflow": "HtdpRXN1k1KyOU2z"
   },
-  "versionId": "fa576110-cec6-4231-948c-6fed7856de3f",
+  "versionId": "dbfcc2a1-1fd8-4137-b202-23e144bc56e5",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "89df3768fdc0467cdcc0f9fa62b8feac7747947744c7f73c89e51e7cb4d47605"

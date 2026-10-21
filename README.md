@@ -38,8 +38,8 @@ Two workflows, one per trigger: a scheduled **pipeline** and an event-driven **b
 3. **Loop Over Terms** → **Send Request to the Flask Server** → **Tag Search Term** (attaches the term to every job via n8n's paired-item link back to the loop)
 4. **Filter Duplicate Jobs** dedupes by `job_id` within the batch, merging `search_terms` so a job found by three terms records all three
 5. **Select Job From Table** + **Filter Already Existing in Database** drop jobs evaluated in earlier runs
-6. **Loop Over Jobs** (batch size 1) → **Message a model** (Gemini) → **Wait** (rate-limit buffer)
-7. **Parse Data** → **Combine Job and LLM Data** → **Compute Verdict** → **Insert Job and Verdict Data**
+6. **Loop Over Jobs** (batch size 1) → **Message a model** (Gemini, up to 5 tries) → **Wait Before Asking** (rate-limit buffer). If all tries fail, the error output goes to **Mark LLM Failed**, which returns a placeholder into the same loop
+7. **Parse Data** (also marks unparseable LLM output as failed) → **Combine Job and LLM Data** → **Drop LLM Failures** → **Compute Verdict** → **Insert Job and Verdict Data**
 8. **If Should Apply** (`llm_apply`) → **Send New Job Match** (Telegram, with inline buttons)
 
 The workflow is its own error workflow: if any run fails, an **Error Trigger** sends a separate 🔴 Telegram message, so a crash never looks like a quiet job market.
@@ -132,6 +132,8 @@ Applications older than 21 days with no update are reported as **ghosted** by th
 **Route on one computed string.** The bot's Switch matches a `route` field built in Parse Command, using string equality only. Boolean rules in the Switch node caused type errors and false matches.
 
 **Failures alert separately from successes.** The Error Trigger path sends its own message, distinct from "no good jobs this run."
+
+**One failed LLM call skips one job, not the whole run.** Gemini's free tier returns occasional `503 ServiceUnavailable` errors when the model is overloaded, unrelated to quota. Originally a single 503 that outlasted the retries stopped the execution, and because inserts happen after the loop, every job already scored in that run was lost. Now a failed job produces a placeholder instead of an error: Combine pairs verdicts with jobs by position, so every loop iteration must emit exactly one item, or later verdicts would silently attach to the wrong listings. Placeholders are dropped after Combine and never inserted, and since cross-run dedup only skips jobs that are stored, a skipped job is evaluated again the next time a scrape finds it. Not inserting it _is_ the retry.
 
 **Pinned test data can mask missing wiring.** Early on, a disconnected node's pinned output made every test run "work"; the first scheduled run failed because the real trigger output had no `term` field. Unpin and re-test from a cold trigger before trusting a workflow. For testing a single Code node, a scratch workflow (Manual Trigger → Code with pasted items → copy of the node) is faster and doesn't re-run upstream nodes.
 
