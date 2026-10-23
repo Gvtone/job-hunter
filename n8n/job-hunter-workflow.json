@@ -112,8 +112,9 @@
       "parameters": {
         "modelId": {
           "__rl": true,
-          "value": "models/does-not-exist",
-          "mode": "id"
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
         },
         "messages": {
           "values": [
@@ -1312,7 +1313,7 @@
     "availableInMCP": false,
     "errorWorkflow": "HtdpRXN1k1KyOU2z"
   },
-  "versionId": "dbfcc2a1-1fd8-4137-b202-23e144bc56e5",
+  "versionId": "0bbbdba4-15ca-4347-bdd6-22db1dfc9941",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "89df3768fdc0467cdcc0f9fa62b8feac7747947744c7f73c89e51e7cb4d47605"
