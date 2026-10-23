@@ -112,9 +112,9 @@
       "parameters": {
         "modelId": {
           "__rl": true,
-          "value": "models/gemini-2.5-flash",
+          "value": "models/gemini-3.1-flash-lite",
           "mode": "list",
-          "cachedResultName": "models/gemini-2.5-flash"
+          "cachedResultName": "models/gemini-3.1-flash-lite"
         },
         "messages": {
           "values": [
@@ -1313,7 +1313,7 @@
     "availableInMCP": false,
     "errorWorkflow": "HtdpRXN1k1KyOU2z"
   },
-  "versionId": "0bbbdba4-15ca-4347-bdd6-22db1dfc9941",
+  "versionId": "36932d4a-d1b5-40d2-8e89-2a9f62526390",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "89df3768fdc0467cdcc0f9fa62b8feac7747947744c7f73c89e51e7cb4d47605"
